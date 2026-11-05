@@ -1,26 +1,92 @@
-const image = (id, width = 800, height = 600) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${width}&h=${height}&q=78`
+export const initialProducts = [
+  // Pilar 1 — Physical Products
+  {
+    id: 'prod-phys-1',
+    name: 'Skincare Glow Set Complete',
+    slug: 'skincare-glow-set',
+    pillar: 'physical',
+    category: 'Skincare & Makeup',
+    type: 'physical',
+    price: 125000,
+    originalPrice: 150000,
+    stock: 25,
+    rating: 4.8,
+    image: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?w=500&q=80',
+    description: 'Set skincare lengkap untuk mencerahkan dan merawat kelembaban kulit seharian.'
+  },
+  {
+    id: 'prod-phys-2',
+    name: 'Oversized Streetwear Hoodie Purple',
+    slug: 'oversized-hoodie-purple',
+    pillar: 'physical',
+    category: 'Fashion & Hijab',
+    type: 'physical',
+    price: 189000,
+    originalPrice: 220000,
+    stock: 12,
+    rating: 4.9,
+    image: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=500&q=80',
+    description: 'Hoodie bahan cotton fleece tebal dengan potongan oversized gaya khas Gen-Z.'
+  },
 
-export const products = [
-  { id: 'p1', slug: 'skincare-glow-set', name: 'Skincare Glow Set', description: 'Paket skincare harian dengan cleanser, toner, serum, dan pelembap untuk tampilan kulit lebih segar. Cocok untuk rutinitas pagi dan malam.', price: 129000, originalPrice: 159000, category: 'Beauty & Skincare', productType: 'physical', fulfillmentType: 'Dikirim menggunakan jasa ekspedisi. Packing aman dan dapat dilacak.', stockQuantity: 18, images: [image('photo-1556228578-8c89e6adf883')], isActive: true, createdAt: '2026-10-28', bestSeller: true },
-  { id: 'p2', slug: 'lip-tint-pop-color', name: 'Lip Tint Pop Color', description: 'Lip tint ringan dengan pigmentasi natural dan hasil lembap. Tersedia dalam pilihan warna untuk tampilan sehari-hari.', price: 49000, originalPrice: 59000, category: 'Beauty & Skincare', productType: 'physical', fulfillmentType: 'Dikirim melalui kurir pilihan pelanggan.', stockQuantity: 32, images: [image('photo-1586495777744-4413f21062fa')], isActive: true, createdAt: '2026-10-21', bestSeller: true },
-  { id: 'p3', slug: 'hijab-everyday', name: 'Hijab Everyday Premium', description: 'Hijab daily dengan bahan adem, ringan, dan mudah dibentuk untuk aktivitas harian maupun acara kasual.', price: 79000, originalPrice: 99000, category: 'Fashion & Hijab', productType: 'physical', fulfillmentType: 'Dikirim melalui ekspedisi dengan opsi alamat lengkap.', stockQuantity: 24, images: [image('photo-1583394838336-acd977736f90')], isActive: true, createdAt: '2026-10-30', bestSeller: true },
-  { id: 'p4', slug: 'totebag-minimal', name: 'Totebag Minimal Canvas', description: 'Tas kanvas minimal untuk kuliah, kerja, atau belanja harian. Jahitan kuat dan muat buku serta perlengkapan sehari-hari.', price: 65000, originalPrice: 65000, category: 'Accessories & Lifestyle', productType: 'physical', fulfillmentType: 'Pengiriman ekspedisi atau dapat disepakati pickup area tertentu.', stockQuantity: 15, images: [image('photo-1553062407-98eeb64c6a62')], isActive: true, createdAt: '2026-10-26' },
-  { id: 'p5', slug: 'snack-box-madura', name: 'Snack Box Madura', description: 'Seleksi makanan ringan khas lokal dalam kemasan gift box. Cocok untuk hadiah atau sajian santai bersama teman.', price: 85000, originalPrice: 95000, category: 'Food & Snacks', productType: 'physical', fulfillmentType: 'Pengiriman dapat disesuaikan untuk menjaga kualitas kemasan.', stockQuantity: 12, images: [image('photo-1599490659213-e2b9527bd087')], isActive: true, createdAt: '2026-10-18' },
-  { id: 'p6', slug: 'tissue-organizer-set', name: 'Daily Essentials Organizer', description: 'Set penyimpanan praktis untuk kebutuhan harian, kosmetik mini, atau perlengkapan meja.', price: 42000, originalPrice: 42000, category: 'Daily Essentials', productType: 'physical', fulfillmentType: 'Dikirim melalui kurir setelah pesanan dikonfirmasi.', stockQuantity: 40, images: [image('photo-1586023492125-27b2c045efd7')], isActive: true, createdAt: '2026-10-11' },
-  { id: 'p7', slug: 'paket-data-15gb', name: 'Paket Data 15GB', description: 'Voucher paket data digital untuk mempermudah kebutuhan internet harian. Aktivasi sesuai instruksi voucher yang dikirim.', price: 55000, originalPrice: 60000, category: 'Mobile Credit & Data', productType: 'digital', fulfillmentType: 'Voucher dikirim melalui WhatsApp atau email setelah pembayaran terverifikasi.', stockQuantity: 999, images: [image('photo-1512941937669-90a1b58e7e9c')], isActive: true, createdAt: '2026-10-31', bestSeller: true },
-  { id: 'p8', slug: 'pulsa-digital-25k', name: 'Pulsa Digital 25K', description: 'Pulsa digital nominal 25 ribu untuk kebutuhan telepon dan data sesuai provider yang dipilih pelanggan.', price: 27000, originalPrice: 27000, category: 'Mobile Credit & Data', productType: 'digital', fulfillmentType: 'Pengisian digital membutuhkan nomor tujuan dan konfirmasi metode pembayaran.', stockQuantity: 999, images: [image('photo-1556656793-08538906a9f8')], isActive: true, createdAt: '2026-10-29' },
-  { id: 'p9', slug: 'voucher-streaming', name: 'Voucher Digital Streaming', description: 'Voucher layanan streaming dari mitra resmi untuk menambah masa langganan secara digital.', price: 35000, originalPrice: 40000, category: 'Digital Vouchers', productType: 'digital', fulfillmentType: 'Kode voucher dikirim digital setelah pesanan selesai diproses.', stockQuantity: 150, images: [image('photo-1522869635100-9f4c5e86aa37')], isActive: true, createdAt: '2026-10-25', bestSeller: true },
-  { id: 'p10', slug: 'template-planner-digital', name: 'Digital Planner PDF', description: 'Template planner digital yang dapat digunakan pada aplikasi anotasi PDF untuk produktivitas harian.', price: 39000, originalPrice: 59000, category: 'Digital Products', productType: 'digital', fulfillmentType: 'File dikirim setelah pesanan diverifikasi. Lisensi penggunaan personal.', stockQuantity: 999, images: [image('photo-1456324504439-367cee3b3c32')], isActive: true, createdAt: '2026-10-27' },
-  { id: 'p11', slug: 'cek-akun-aplikasi-resmi', name: 'Aplikasi Digital Resmi', description: 'Layanan bantu pembelian atau aktivasi aplikasi legal sesuai ketentuan mitra penyedia resmi.', price: 45000, originalPrice: 45000, category: 'Legal Digital Services', productType: 'digital', fulfillmentType: 'Aktivasi dilakukan sesuai kebutuhan akun dan persyaratan layanan resmi.', stockQuantity: 999, images: [image('photo-1614064641938-3bbee52942c7')], isActive: true, createdAt: '2026-10-20' },
-  { id: 'p12', slug: 'desain-feed-instagram', name: 'Desain Feed Instagram', description: 'Paket desain konten feed Instagram dengan konsep visual konsisten untuk kebutuhan bisnis atau personal brand.', price: 150000, originalPrice: 200000, category: 'Graphic Design', productType: 'service', fulfillmentType: 'Pengerjaan dimulai setelah brief diterima, revisi terbatas, dan jadwal disepakati.', stockQuantity: 10, images: [image('photo-1558655146-d09347e92766')], isActive: true, createdAt: '2026-10-31', bestSeller: true },
-  { id: 'p13', slug: 'video-editing-reels', name: 'Editing Video Reels', description: 'Editing video singkat untuk konten Reels dengan transisi, teks, potongan, dan audio sesuai brief.', price: 125000, originalPrice: 125000, category: 'Editing Services', productType: 'service', fulfillmentType: 'Kirim footage dan brief. Estimasi pengerjaan disepakati sebelum produksi.', stockQuantity: 10, images: [image('photo-1574717024653-61fd2cf4d44d')], isActive: true, createdAt: '2026-10-24' },
-  { id: 'p14', slug: 'print-sticker-custom', name: 'Cetak Sticker Custom', description: 'Produksi sticker custom berdasarkan desain pelanggan dalam ukuran dan jumlah yang disepakati.', price: 75000, originalPrice: 90000, category: 'Printing & Custom', productType: 'service', fulfillmentType: 'Memerlukan file desain final dan jumlah cetak sebelum produksi dimulai.', stockQuantity: 20, images: [image('photo-1561070791-2526d30994b5')], isActive: true, createdAt: '2026-10-17' },
-  { id: 'p15', slug: 'administrasi-kreatif-etik', name: 'Administrasi Kreatif Etis', description: 'Bantuan penyusunan materi, formatting, dan presentasi secara kreatif. Tidak termasuk pengerjaan akademik yang melanggar aturan.', price: 100000, originalPrice: 100000, category: 'Academic Services', productType: 'service', fulfillmentType: 'Brief, materi sumber, tenggat, dan format akhir harus disepakati terlebih dahulu.', stockQuantity: 8, images: [image('photo-1456324504439-367cee3b3c32')], isActive: true, createdAt: '2026-10-23' },
-  { id: 'p16', slug: 'paket-merchandise-wisuda', name: 'Merchandise Wisuda Custom', description: 'Paket merchandise wisuda seperti totebag atau aksesoris custom sesuai desain dan jumlah peserta.', price: 180000, originalPrice: 220000, category: 'Graduation & Merchandise', productType: 'service', fulfillmentType: 'Memerlukan brief desain, jumlah pesanan, jadwal produksi, dan detail pengiriman.', stockQuantity: 10, images: [image('photo-1523050854058-8df90110c9f1')], isActive: true, createdAt: '2026-10-30', bestSeller: true },
-]
+  // Pilar 2 — Digital Products
+  {
+    id: 'prod-digi-1',
+    name: 'Paket Data Telkomsel 50GB Flash',
+    slug: 'paket-data-telkomsel-50gb',
+    pillar: 'digital',
+    category: 'Pulsa & Kuota',
+    type: 'digital',
+    price: 95000,
+    originalPrice: 110000,
+    stock: 999,
+    rating: 5.0,
+    image: 'https://images.unsplash.com/photo-1616077168079-7e09a677fb2c?w=500&q=80',
+    description: 'Pengisian kuota utama 24 jam tanpa pembagian waktu. Masukkan nomor HP saat checkout.'
+  },
+  {
+    id: 'prod-digi-2',
+    name: 'Aplikasi Premium Canva Pro 1 Tahun',
+    slug: 'canva-pro-1-tahun',
+    pillar: 'digital',
+    category: 'Layanan Digital Legal',
+    type: 'digital',
+    price: 45000,
+    originalPrice: 95000,
+    stock: 50,
+    rating: 4.9,
+    image: 'https://images.unsplash.com/photo-1626785774573-4b799315345d?w=500&q=80',
+    description: 'Aktivasi langsung ke email pribadi akun Canva Anda. Legal & bergaransi penuh.'
+  },
 
-export const categories = [
-  { name: 'Beauty & Skincare', group: 'physical' }, { name: 'Fashion & Hijab', group: 'physical' }, { name: 'Accessories & Lifestyle', group: 'physical' }, { name: 'Food & Snacks', group: 'physical' }, { name: 'Daily Essentials', group: 'physical' },
-  { name: 'Mobile Credit & Data', group: 'digital' }, { name: 'Digital Vouchers', group: 'digital' }, { name: 'Digital Products', group: 'digital' }, { name: 'Legal Digital Services', group: 'digital' },
-  { name: 'Graphic Design', group: 'service' }, { name: 'Editing Services', group: 'service' }, { name: 'Printing & Custom', group: 'service' }, { name: 'Academic Services', group: 'service' }, { name: 'Graduation & Merchandise', group: 'service' },
-]
+  // Pilar 3 — Services & Solutions
+  {
+    id: 'prod-serv-1',
+    name: 'Jasa Cek Plagiasi Turnitin No-Repo',
+    slug: 'jasa-cek-turnitin-no-repo',
+    pillar: 'service',
+    category: 'Layanan Akademik Etis',
+    type: 'service',
+    price: 7000,
+    originalPrice: 10000,
+    stock: 100,
+    rating: 5.0,
+    image: 'https://images.unsplash.com/photo-1455390582262-044cdead277a?w=500&q=80',
+    description: 'Pengecekan Turnitin cepat (5-15 menit). File terjamin aman dan tidak tersimpan di database.'
+  },
+  {
+    id: 'prod-serv-2',
+    name: 'Desain Banner & Logo Feed Estetik',
+    slug: 'desain-banner-logo-feed',
+    pillar: 'service',
+    category: 'Desain Grafis & Kreatif',
+    type: 'service',
+    price: 75000,
+    originalPrice: 100000,
+    stock: 15,
+    rating: 4.9,
+    image: 'https://images.unsplash.com/photo-1626785774625-ddcddc3445e9?w=500&q=80',
+    description: 'Jasa pembuatan desain profesional untuk brand atau UMKM. Pengerjaan 1-2 hari kerja.'
+  }
+];
+export const products = initialProducts;

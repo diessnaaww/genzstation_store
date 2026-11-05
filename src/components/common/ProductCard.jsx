@@ -1,33 +1,77 @@
-import { ArrowRight } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import React from 'react';
+import { ShoppingBag, Star, Zap, CheckCircle2, Package } from 'lucide-react';
+import { useCart } from '../../contexts/CartContext.jsx';
 
-export function PriceDisplay({ price, originalPrice }) {
-  const format = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value)
-  return (
-    <div className="flex flex-wrap items-baseline gap-2">
-      <strong className="text-lg text-brand-purple">{format(price)}</strong>
-      {originalPrice > price && <del className="text-xs text-zinc-400">{format(originalPrice)}</del>}
-    </div>
-  )
-}
+export const ProductCard = ({ product }) => {
+  const { addToCart } = useCart();
 
-function ProductCard({ product }) {
+  // Helper badge sesuai tipe produk
+  const getTypeBadge = (type) => {
+    switch (type) {
+      case 'digital':
+        return { label: 'Digital', bg: 'bg-lime-100 text-lime-800 border-lime-300', icon: Zap };
+      case 'service':
+        return { label: 'Jasa / Service', bg: 'bg-rose-100 text-rose-800 border-rose-300', icon: CheckCircle2 };
+      default:
+        return { label: 'Fisik', bg: 'bg-purple-100 text-purple-800 border-purple-300', icon: Package };
+    }
+  };
+
+  const badge = getTypeBadge(product.type);
+  const BadgeIcon = badge.icon;
+
+  const formatIDR = (price) => {
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(price);
+  };
+
   return (
-    <article className="overflow-hidden rounded-3xl border border-zinc-100 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
-      <Link to={`/produk/${product.slug}`} className="group relative block aspect-[4/3] overflow-hidden bg-zinc-100" aria-label={`Lihat ${product.name}`}>
-        <img src={product.images[0]} alt={product.name} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
-        <span className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1 text-[10px] font-bold text-brand-deep shadow-sm">{product.productType}</span>
-      </Link>
-      <div className="p-5">
-        <p className="mb-2 text-xs font-bold uppercase tracking-wider text-zinc-400">{product.category}</p>
-        <h3 className="mb-3 font-bold text-brand-text">{product.name}</h3>
-        <div className="flex items-center justify-between gap-3">
-          <PriceDisplay price={product.price} originalPrice={product.originalPrice} />
-          <Link to={`/produk/${product.slug}`} aria-label={`Lihat detail ${product.name}`} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-purple text-white transition hover:bg-brand-deep"><ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between overflow-hidden group">
+      <div className="relative overflow-hidden aspect-square bg-gray-50">
+        <img
+          src={product.image}
+          alt={product.name}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+        />
+        {/* Badge Tipe Produk */}
+        <span className={`absolute top-3 left-3 text-xs font-semibold px-2.5 py-1 rounded-full border flex items-center gap-1 ${badge.bg}`}>
+          <BadgeIcon size={12} />
+          {badge.label}
+        </span>
+      </div>
+
+      <div className="p-4 flex flex-col flex-grow justify-between">
+        <div>
+          <div className="flex items-center gap-1 text-amber-500 text-xs font-medium mb-1">
+            <Star size={14} className="fill-amber-400 stroke-amber-400" />
+            <span>{product.rating}</span>
+            <span className="text-gray-400">({product.category})</span>
+          </div>
+          <h3 className="font-bold text-gray-900 text-sm md:text-base line-clamp-2 mb-2 group-hover:text-purple-600 transition-colors">
+            {product.name}
+          </h3>
+        </div>
+
+        <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
+          <div>
+            {product.originalPrice && (
+              <span className="text-xs text-gray-400 line-through block">
+                {formatIDR(product.originalPrice)}
+              </span>
+            )}
+            <span className="font-extrabold text-purple-700 text-base">
+              {formatIDR(product.price)}
+            </span>
+          </div>
+
+          <button
+            onClick={() => addToCart(product)}
+            className="bg-purple-600 hover:bg-purple-700 active:scale-95 text-white p-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center"
+            title="Tambah ke Keranjang"
+          >
+            <ShoppingBag size={18} />
+          </button>
         </div>
       </div>
-    </article>
-  )
-}
-
-export default ProductCard
+    </div>
+  );
+};

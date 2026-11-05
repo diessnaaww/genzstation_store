@@ -1,13 +1,17 @@
-import { Search } from 'lucide-react'
+import React from 'react';
+import { Search } from 'lucide-react';
 
-function SearchBar({ value, onChange, placeholder = 'Cari produk, voucher, atau jasa...' }) {
+export const SearchBar = ({ searchTerm, setSearchTerm }) => {
   return (
-    <label className="flex w-full items-center gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
-      <Search className="h-5 w-5 shrink-0 text-zinc-400" aria-hidden="true" />
-      <span className="sr-only">{placeholder}</span>
-      <input type="search" value={value} onChange={(event) => onChange?.(event.target.value)} placeholder={placeholder} className="min-w-0 flex-1 border-0 bg-transparent text-sm outline-none placeholder:text-zinc-400" />
-    </label>
-  )
-}
-
-export default SearchBar
+    <div className="relative w-full">
+      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+      <input
+        type="text"
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        placeholder="Cari produk fisik, kuota digital, atau layanan jasa..."
+        className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent transition-all"
+      />
+    </div>
+  );
+};

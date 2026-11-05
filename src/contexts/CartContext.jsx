@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { useAuth } from './AuthContext'
 import { isSupabaseConfigured, supabase } from '../services/supabase'
-import { products } from '../data/products'
+import { initialProducts as products } from '../data/products.js';
 
 const CartContext = createContext(null)
 const GUEST_CART_KEY = 'genzstation_cart'
