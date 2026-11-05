@@ -1,0 +1,13 @@
+import { useEffect,useState } from 'react'
+import { Edit3,Plus,Trash2 } from 'lucide-react'
+import CategoryFormModal from '../../components/admin/CategoryFormModal'
+import {getAdminCategories,saveAdminCategory,deleteAdminCategory} from '../../services/adminCategoryService'
+function AdminCategories(){
+ const [items,setItems]=useState([]);const [loading,setLoading]=useState(true);const [selected,setSelected]=useState(null);const [open,setOpen]=useState(false);const [error,setError]=useState('');const [toast,setToast]=useState('')
+ const load=async()=>{setLoading(true);try{setItems(await getAdminCategories())}catch(caught){setError(caught.message)}finally{setLoading(false)}}
+ useEffect(()=>{load()},[])
+ const save=async(form)=>{await saveAdminCategory(form);await load();setToast('Kategori berhasil disimpan')}
+ const remove=async(item)=>{if(!window.confirm(`Hapus kategori ${item.name}?`))return;try{await deleteAdminCategory(item.id);await load();setToast('Kategori dihapus')}catch(caught){setError(caught.message)}}
+ return <div className="p-4 sm:p-6 lg:p-8"><div className="flex items-center justify-between"><div><p className="text-xs font-bold uppercase text-brand-purple">Organisasi katalog</p><h2 className="mt-1 text-2xl font-extrabold">Kategori</h2></div><button type="button" onClick={()=>{setSelected(null);setOpen(true)}} className="flex items-center gap-2 rounded-xl bg-brand-purple px-4 py-3 text-sm font-bold text-white"><Plus className="h-4 w-4"/>Tambah</button></div>{toast&&<p className="mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">{toast}</p>}{error&&<p role="alert" className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}{loading?<div className="mt-5 h-48 animate-pulse rounded-2xl bg-zinc-200"/>:<div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{items.map(item=><div key={item.id} className="rounded-2xl border border-zinc-100 bg-white p-5"><div className="flex justify-between"><div><span className="rounded-full bg-brand-lavender px-2 py-1 text-xs font-bold text-brand-deep">{item.pillar}</span><h3 className="mt-3 font-extrabold">{item.name}</h3><p className="mt-1 text-sm text-zinc-500">{item.description||'-'}</p></div><div className="flex gap-1"><button type="button" aria-label="Edit kategori" onClick={()=>{setSelected(item);setOpen(true)}} className="h-fit rounded-lg border p-2"><Edit3 className="h-4 w-4"/></button><button type="button" aria-label="Hapus kategori" onClick={()=>remove(item)} className="h-fit rounded-lg border p-2 text-red-600"><Trash2 className="h-4 w-4"/></button></div></div></div>)}</div>}{open&&<CategoryFormModal category={selected} onClose={()=>setOpen(false)} onSave={save}/>}</div>
+}
+export default AdminCategories
