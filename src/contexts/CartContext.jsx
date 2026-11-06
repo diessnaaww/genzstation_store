@@ -1,109 +1,72 @@
-import { createContext, useContext, useEffect, useState } from 'react'
-import { useAuth } from './AuthContext'
-import { isSupabaseConfigured, supabase } from '../services/supabase'
-import { initialProducts as products } from '../data/products.js';
+import React, { createContext, useContext, useState } from 'react';
 
-const CartContext = createContext(null)
-const GUEST_CART_KEY = 'genzstation_cart'
+const CartContext = createContext();
 
-function readGuestCart() {
-  try {
-    return JSON.parse(localStorage.getItem(GUEST_CART_KEY) || '[]')
-  } catch {
-    return []
-  }
-}
+export const CartProvider = ({ children }) => {
+  const [cartItems, setCartItems] = useState([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
-function hydrateItems(items) {
-  return items.flatMap((item) => {
-    const product = products.find((candidate) => candidate.id === item.id || candidate.id === item.product_id)
-    if (!product?.isActive) return []
-    const maxQuantity = product.productType === 'physical' ? product.stockQuantity : 999
-    return [{ id: product.id, product_id: product.id, slug: product.slug, name: product.name, price: product.price, image: product.images?.[0] || '', productType: product.productType, quantity: Math.min(Math.max(1, Number(item.quantity) || 1), maxQuantity) }]
-  })
-}
-
-export function CartProvider({ children }) {
-  const { user } = useAuth()
-  const [items, setItems] = useState(() => user ? [] : hydrateItems(readGuestCart()))
-
-  useEffect(() => {
-    if (!user) {
-      return
-    }
-    if (!isSupabaseConfigured) return
-    let active = true
-    supabase.from('carts').select('id, cart_items(id, product_id, quantity)').eq('user_id', user.id).maybeSingle().then(async ({ data, error }) => {
-      if (!active || error) return
-      const guestItems = hydrateItems(readGuestCart())
-      const serverItems = hydrateItems(data?.cart_items || [])
-      const mergedMap = new Map(serverItems.map((item) => [item.id, item]))
-      guestItems.forEach((guestItem) => {
-        const serverItem = mergedMap.get(guestItem.id)
-        const product = products.find((candidate) => candidate.id === guestItem.id)
-        const maximum = product?.productType === 'physical' ? product.stockQuantity : 999
-        mergedMap.set(guestItem.id, {
-          ...guestItem,
-          quantity: Math.min(maximum, (serverItem?.quantity || 0) + guestItem.quantity),
-        })
-      })
-      const mergedItems = [...mergedMap.values()]
-      setItems(mergedItems)
-      localStorage.removeItem(GUEST_CART_KEY)
-      if (!data?.id) return
-      await supabase.from('cart_items').delete().eq('cart_id', data.id)
-      if (mergedItems.length) {
-        await supabase.from('cart_items').insert(mergedItems.map((item) => ({
-          cart_id: data.id,
-          product_id: item.id,
-          quantity: item.quantity,
-        })))
+  // Fungsi Tambah ke Keranjang + Otomatis Buka Drawer
+  const addToCart = (product) => {
+    setCartItems((prevItems) => {
+      const existingItem = prevItems.find((item) => item.id === product.id);
+      if (existingItem) {
+        return prevItems.map((item) =>
+          item.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
       }
-    })
-    return () => { active = false }
-  }, [user])
+      return [...prevItems, { ...product, quantity: 1 }];
+    });
+    // Picu panel keranjang agar otomatis terbuka
+    setIsCartOpen(true);
+  };
 
-  const persist = async (nextItems) => {
-    setItems(nextItems)
-    if (!user) {
-      localStorage.setItem(GUEST_CART_KEY, JSON.stringify(nextItems.map(({ id, quantity }) => ({ id, quantity }))))
-      return
-    }
-    if (!isSupabaseConfigured) return
-    const { data } = await supabase.from('carts').upsert({ user_id: user.id }, { onConflict: 'user_id' }).select('id').single()
-    if (!data?.id) return
-    await supabase.from('cart_items').delete().eq('cart_id', data.id)
-    if (nextItems.length) {
-      await supabase.from('cart_items').insert(nextItems.map((item) => ({ cart_id: data.id, product_id: item.id, quantity: item.quantity })))
-    }
-  }
+  // Fungsi Hapus Item dari Keranjang
+  const removeFromCart = (id) => {
+    setCartItems((prevItems) => prevItems.filter((item) => item.id !== id));
+  };
 
-  const addItem = async (product, quantity = 1) => {
-    if (!product?.isActive) return
-    const maximum = product.productType === 'physical' ? product.stockQuantity : 999
-    const existing = items.find((item) => item.id === product.id)
-    const nextQuantity = Math.min(maximum, (existing?.quantity || 0) + quantity)
-    const next = existing ? items.map((item) => item.id === product.id ? { ...item, quantity: nextQuantity } : item) : [...items, { id: product.id, product_id: product.id, slug: product.slug, name: product.name, price: product.price, image: product.images?.[0] || '', productType: product.productType, quantity: nextQuantity }]
-    await persist(next)
-  }
-
+  // Fungsi Ubah Kuantitas (+) dan (-)
   const updateQuantity = (id, quantity) => {
-    const product = products.find((item) => item.id === id)
-    const maximum = product?.productType === 'physical' ? product.stockQuantity : 999
-    persist(items.map((item) => item.id === id ? { ...item, quantity: Math.max(1, Math.min(maximum, quantity)) } : item))
+    if (quantity <= 0) {
+      removeFromCart(id);
+      return;
+    }
+    setCartItems((prevItems) =>
+      prevItems.map((item) =>
+        item.id === id ? { ...item, quantity } : item
+      )
+    );
+  };
+
+  // Fungsi Hitung Subtotal Harga
+  const getTotalPrice = () => {
+    return cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
+  };
+
+  return (
+    <CartContext.Provider
+      value={{
+        cartItems,
+        isCartOpen,
+        setIsCartOpen,
+        addToCart,
+        removeFromCart,
+        updateQuantity,
+        getTotalPrice,
+      }}
+    >
+      {children}
+    </CartContext.Provider>
+  );
+};
+
+export const useCart = () => {
+  const context = useContext(CartContext);
+  if (!context) {
+    throw new Error('useCart must be used within a CartProvider');
   }
-
-  const removeItem = (id) => persist(items.filter((item) => item.id !== id))
-  const clearCart = () => persist([])
-  const count = items.reduce((total, item) => total + item.quantity, 0)
-  const subtotal = items.reduce((total, item) => total + item.price * item.quantity, 0)
-  const value = { items, count, subtotal, addItem, updateQuantity, removeItem, clearCart }
-
-  return <CartContext.Provider value={value}>{children}</CartContext.Provider>
-}
-
-export function useCart() {
-  const context = useContext(CartContext)
-  if (!context) throw new Error('useCart must be used inside CartProvider')
-  return context
-}
+  return context;
+};
