@@ -1,23 +1,23 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext.jsx';
-import { ArrowLeft, Send, CheckCircle2, Package, Zap, FileText, ShoppingBag } from 'lucide-react';
+import { saveOrderToSheets } from '../../services/sheetsService.js';
+import { ArrowLeft, Send, CheckCircle2, Package, Zap, FileText, ShoppingBag, Loader2 } from 'lucide-react';
 
 export const Checkout = () => {
   const navigate = useNavigate();
   const { cartItems, getTotalPrice, setCartItems } = useCart();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Form State
   const [formData, setFormData] = useState({
     customerName: '',
     whatsappNumber: '',
-    shippingAddress: '', // Khusus produk fisik
-    targetAccount: '',   // Khusus produk digital (Nomor HP/Email)
-    serviceBrief: '',    // Khusus produk layanan/jasa (Drive/Instruksi)
+    shippingAddress: '',
+    targetAccount: '',
+    serviceBrief: '',
     notes: '',
   });
 
-  // Deteksi pilar produk di dalam keranjang
   const hasPhysical = cartItems.some((item) => item.pillar === 'physical');
   const hasDigital = cartItems.some((item) => item.pillar === 'digital');
   const hasService = cartItems.some((item) => item.pillar === 'service');
@@ -31,7 +31,7 @@ export const Checkout = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmitOrder = (e) => {
+  const handleSubmitOrder = async (e) => {
     e.preventDefault();
 
     if (!formData.customerName || !formData.whatsappNumber) {
@@ -39,52 +39,79 @@ export const Checkout = () => {
       return;
     }
 
-    // Nomor WhatsApp Admin Genzstation.id (Sesuaikan nomor Anda)
+    setIsSubmitting(true);
+
+    // 1. Kelompokkan data untuk Google Sheets & WhatsApp
+    const uniquePillars = [...new Set(cartItems.map((item) => item.pillar))].join(', ');
+    const uniqueOrigins = [...new Set(cartItems.map((item) => item.originCity || 'Digital/Pusat'))].join(', ');
+    const itemsSummaryText = cartItems
+      .map((item) => `${item.name} (${item.quantity}x)`)
+      .join('; ');
+
+    // 2. Simpan ke Database Google Sheets via Service Terpusat
+    const sheetResult = await saveOrderToSheets({
+      customerName: formData.customerName,
+      whatsappNumber: formData.whatsappNumber,
+      pillars: uniquePillars,
+      itemsSummary: itemsSummaryText,
+      originCities: uniqueOrigins,
+      shippingAddress: formData.shippingAddress,
+      targetAccount: formData.targetAccount,
+      serviceBrief: formData.serviceBrief,
+      totalPrice: getTotalPrice(),
+    });
+
+    const orderIdText = sheetResult?.orderId ? ` (${sheetResult.orderId})` : '';
+
+    // 3. Susun Rincian Paket Multi-Supplier untuk WhatsApp
+    const groupedByOrigin = cartItems.reduce((acc, item) => {
+      const origin = item.originCity || 'Non-Fisik / Pusat';
+      if (!acc[origin]) acc[origin] = [];
+      acc[origin].push(item);
+      return acc;
+    }, {});
+
+    let itemsListWA = '';
+    Object.keys(groupedByOrigin).forEach((origin, idx) => {
+      itemsListWA += `\n📦 *Paket ${idx + 1} (Asal: ${origin})*\n`;
+      groupedByOrigin[origin].forEach((item) => {
+        itemsListWA += `  • ${item.name} (${item.quantity}x) = ${formatIDR(item.price * item.quantity)}\n`;
+      });
+    });
+
     const adminWA = '6285649750554';
-
-    // Rincian Item Pesanan
-    let itemsList = cartItems
-      .map((item, index) => `${index + 1}. *${item.name}* (${item.quantity}x) = ${formatIDR(item.price * item.quantity)}`)
-      .join('\n');
-
-    // Format Pesanan WhatsApp
-    let waMessage = `*PESANAN BARU - GENZSTATION.ID*\n`;
+    let waMessage = `*PESANAN BARU${orderIdText} - GENZSTATION.ID*\n`;
     waMessage += `===============================\n\n`;
     waMessage += `*DATA PEMBELI:*\n`;
     waMessage += `• Nama: ${formData.customerName}\n`;
     waMessage += `• No. WA: ${formData.whatsappNumber}\n\n`;
 
     if (hasPhysical) {
-      waMessage += `*DETAIL PENGIRIMAN (PRODUK FISIK):*\n`;
-      waMessage += `• Alamat: ${formData.shippingAddress || '-'}\n\n`;
+      waMessage += `*ALAMAT PENGIRIMAN:*\n`;
+      waMessage += `• ${formData.shippingAddress || '-'}\n\n`;
     }
-
     if (hasDigital) {
-      waMessage += `*DATA PENERIMA (PRODUK DIGITAL):*\n`;
-      waMessage += `• No. HP / Email Akun: ${formData.targetAccount || '-'}\n\n`;
+      waMessage += `*TUJUAN PRODUK DIGITAL:*\n`;
+      waMessage += `• ${formData.targetAccount || '-'}\n\n`;
     }
-
     if (hasService) {
-      waMessage += `*BRIEF / INSTRUKSI (LAYANAN JASA):*\n`;
-      waMessage += `• Catatan/Link File: ${formData.serviceBrief || '-'}\n\n`;
+      waMessage += `*BRIEF LAYANAN JASA:*\n`;
+      waMessage += `• ${formData.serviceBrief || '-'}\n\n`;
     }
 
-    waMessage += `*RINCIAN ITEM:*\n${itemsList}\n\n`;
+    waMessage += `*RINCIAN ITEM:*${itemsListWA}\n`;
     waMessage += `-------------------------------\n`;
-    waMessage += `*TOTAL PEMBAYARAN: ${formatIDR(getTotalPrice())}*\n`;
+    waMessage += `*SUBTOTAL PRODUK: ${formatIDR(getTotalPrice())}*\n`;
     waMessage += `-------------------------------\n`;
-    if (formData.notes) {
-      waMessage += `Catatan Tambahan: ${formData.notes}\n`;
+    if (hasPhysical) {
+      waMessage += `_Catatan: Ongkir dihitung sesuai kota asal masing-masing supplier._\n`;
     }
-    waMessage += `\n_Mohon instruksi metode pembayaran selanjutnya. Terima kasih!_`;
 
-    // Buka WhatsApp
     const encodedMessage = encodeURIComponent(waMessage);
     window.open(`https://wa.me/${adminWA}?text=${encodedMessage}`, '_blank');
 
-    // Kosongkan keranjang & kembali ke katalog
+    setIsSubmitting(false);
     if (setCartItems) setCartItems([]);
-    alert('Pesanan berhasil dibuat! Anda diarahkan ke WhatsApp Admin.');
     navigate('/');
   };
 
@@ -108,7 +135,6 @@ export const Checkout = () => {
   return (
     <div className="min-h-screen bg-[#FAFAFF] py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto space-y-6">
-        {/* Tombol Kembali */}
         <button
           onClick={() => navigate('/')}
           className="flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-purple-600 transition-colors"
@@ -120,9 +146,7 @@ export const Checkout = () => {
         <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Formulir Checkout Pesanan</h1>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Form Informasi Pembeli & Pilar */}
           <form onSubmit={handleSubmitOrder} className="md:col-span-2 space-y-6">
-            {/* 1. Informasi Pembeli Utama */}
             <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
               <h3 className="font-bold text-gray-900 border-b pb-3 text-base flex items-center gap-2">
                 <CheckCircle2 size={18} className="text-purple-600" />
@@ -156,7 +180,6 @@ export const Checkout = () => {
               </div>
             </div>
 
-            {/* 2. Form Spesifik Pilar Physical */}
             {hasPhysical && (
               <div className="bg-white p-6 rounded-2xl border border-purple-100 shadow-sm space-y-4">
                 <h3 className="font-bold text-gray-900 border-b pb-3 text-base flex items-center gap-2 text-purple-800">
@@ -178,7 +201,6 @@ export const Checkout = () => {
               </div>
             )}
 
-            {/* 3. Form Spesifik Pilar Digital */}
             {hasDigital && (
               <div className="bg-white p-6 rounded-2xl border border-lime-100 shadow-sm space-y-4">
                 <h3 className="font-bold text-gray-900 border-b pb-3 text-base flex items-center gap-2 text-lime-800">
@@ -200,7 +222,6 @@ export const Checkout = () => {
               </div>
             )}
 
-            {/* 4. Form Spesifik Pilar Service */}
             {hasService && (
               <div className="bg-white p-6 rounded-2xl border border-rose-100 shadow-sm space-y-4">
                 <h3 className="font-bold text-gray-900 border-b pb-3 text-base flex items-center gap-2 text-rose-800">
@@ -215,7 +236,7 @@ export const Checkout = () => {
                     required={hasService}
                     value={formData.serviceBrief}
                     onChange={handleInputChange}
-                    placeholder="Tautan Google Drive naskah Turnitin / detail brief desain logo yang diinginkan"
+                    placeholder="Tautan Google Drive naskah Turnitin / detail brief desain yang diinginkan"
                     className="w-full p-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-600 focus:outline-none"
                   ></textarea>
                 </div>
@@ -224,14 +245,23 @@ export const Checkout = () => {
 
             <button
               type="submit"
-              className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-bold py-4 px-6 rounded-2xl shadow-lg flex items-center justify-center gap-2 transition-all text-base"
+              disabled={isSubmitting}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 active:scale-[0.99] text-white font-bold py-4 px-6 rounded-2xl shadow-lg flex items-center justify-center gap-2 transition-all text-base"
             >
-              <Send size={20} />
-              <span>Kirim Pesanan via WhatsApp</span>
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={20} className="animate-spin" />
+                  <span>Menyimpan Pesanan...</span>
+                </>
+              ) : (
+                <>
+                  <Send size={20} />
+                  <span>Kirim Pesanan via WhatsApp</span>
+                </>
+              )}
             </button>
           </form>
 
-          {/* Ringkasan Pesanan */}
           <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm h-fit space-y-4">
             <h3 className="font-bold text-gray-900 border-b pb-3 text-base">Ringkasan Keranjang</h3>
             <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
@@ -239,7 +269,10 @@ export const Checkout = () => {
                 <div key={item.id} className="flex justify-between items-center text-xs border-b border-gray-50 pb-2">
                   <div>
                     <p className="font-bold text-gray-800 line-clamp-1">{item.name}</p>
-                    <p className="text-gray-400 mt-0.5">{item.quantity}x @ {formatIDR(item.price)}</p>
+                    <p className="text-gray-400 mt-0.5">
+                      {item.quantity}x @ {formatIDR(item.price)}
+                      {item.originCity ? ` • Asal: ${item.originCity}` : ''}
+                    </p>
                   </div>
                   <span className="font-extrabold text-purple-700">{formatIDR(item.price * item.quantity)}</span>
                 </div>
@@ -247,7 +280,7 @@ export const Checkout = () => {
             </div>
 
             <div className="border-t pt-3 flex justify-between items-center text-sm">
-              <span className="font-bold text-gray-700">Total Tagihan</span>
+              <span className="font-bold text-gray-700">Subtotal Produk</span>
               <span className="font-extrabold text-purple-700 text-lg">{formatIDR(getTotalPrice())}</span>
             </div>
           </div>
