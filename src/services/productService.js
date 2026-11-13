@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from '../lib/supabase'
+import { supabase, isSupabaseConfigured } from '../services/googleSheets.js'
 import { getSafeErrorMessage } from '../utils/errorHandler'
 
 export async function getProducts({ page = 1, pageSize = 12, search = '', category = '', type = '', minPrice = '', maxPrice = '', sort = 'newest' } = {}) {

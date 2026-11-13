@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getProducts } from '../services/productService'
-import { isSupabaseConfigured } from '../lib/supabase'
+import { isSupabaseConfigured } from '../services/googleSheets.js'
 
 export function useProducts(options) {
   const page = options?.page

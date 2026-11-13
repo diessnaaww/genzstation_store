@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from '../lib/supabase'
+import { supabase, isSupabaseConfigured } from '../services/googleSheets.js'
 import { getSafeErrorMessage } from '../utils/errorHandler'
 function ensure(){if(!isSupabaseConfigured)throw new Error('Supabase belum dikonfigurasi.')}
 export async function getAdminCategories(){

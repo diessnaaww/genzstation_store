@@ -1,14 +1,12 @@
 # Genzstation.id
 
-React storefront with Supabase authentication, customer carts, addresses, server-side orders, WhatsApp checkout, and modular Midtrans integration.
+React storefront with Google Sheets database & authentication, customer carts, addresses, multi-origin dropship shipping calculator, WhatsApp checkout, and modular payment fee calculation.
 
 ## Run locally
 
 ```bash
-cp .env.example .env.local
 npm install
 npm run dev
-```
 
 Set only:
 

@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from '../lib/supabase'
+import { supabase, isSupabaseConfigured } from '../services/googleSheets.js'
 import { getSafeErrorMessage } from '../utils/errorHandler'
 
 export async function createCustomerOrder({ items, customer, shippingAddress = {}, notes = '', paymentMethod = 'whatsapp', idempotencyKey }) {

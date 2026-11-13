@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AlertTriangle, CheckCircle2, Clock3, Package, ShoppingCart, Wallet } from 'lucide-react'
 import MetricCard from '../../components/admin/MetricCard'
-import { supabase,isSupabaseConfigured } from '../../lib/supabase'
+import { supabase,isSupabaseConfigured } from '../../services/googleSheets.js'
 function AdminDashboard(){
  const [loading,setLoading]=useState(true);const [metrics,setMetrics]=useState({sales:0,awaiting:0,processing:0,completed:0,active:0,lowStock:[]});const [error,setError]=useState('')
  useEffect(()=>{let active=true;if(!isSupabaseConfigured){setLoading(false);return undefined}(async()=>{try{const [{data:orders},{data:products}] = await Promise.all([supabase.from('orders').select('total_amount,payment_status,order_status'),supabase.from('products').select('id,name,stock_quantity,product_type,is_active')]);if(!active)return;const paidSales=(orders||[]).filter(o=>o.payment_status==='paid').reduce((sum,o)=>sum+Number(o.total_amount||0),0);setMetrics({sales:paidSales,awaiting:(orders||[]).filter(o=>['pending','awaiting_payment','unpaid'].includes(o.order_status)||o.payment_status==='pending').length,processing:(orders||[]).filter(o=>o.order_status==='processing').length,completed:(orders||[]).filter(o=>o.order_status==='completed').length,active:(products||[]).filter(p=>p.is_active).length,lowStock:(products||[]).filter(p=>p.product_type==='physical'&&p.is_active&&Number(p.stock_quantity)<5)})}catch(caught){if(active)setError(caught.message)}finally{if(active)setLoading(false)}})();return()=>{active=false}},[])

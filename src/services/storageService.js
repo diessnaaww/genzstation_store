@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from '../lib/supabase'
+import { supabase, isSupabaseConfigured } from '../services/googleSheets.js'
 
 const limits = { 'product-images': 5 * 1024 * 1024, 'category-images': 5 * 1024 * 1024, avatars: 2 * 1024 * 1024 }
 const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']

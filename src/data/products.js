@@ -8,6 +8,7 @@ export const initialProducts = [
     pillar: 'digital',
     category: 'App Premium',
     price: 10000, // Harga awal ("Mulai dari")
+    Weight: 0,
     image: '/images/canva-pro.jpg',
     description: 'Akses penuh template Pro, hapus latar belakang, dan Magic Studio.',
     variationConfig: {
@@ -33,6 +34,7 @@ export const initialProducts = [
     pillar: 'digital',
     category: 'Streaming',
     price: 25000,
+    weight: 0,
     image: '/images/netflix.jpg',
     description: 'Resolusi Ultra HD 4K, anti-household, garansi penuh selama masa aktif.',
     variationConfig: {
@@ -55,6 +57,7 @@ export const initialProducts = [
     pillar: 'digital',
     category: 'Music & Audio',
     price: 15000,
+    Weight: 0,
     image: '/images/spotify.jpg',
     description: 'Bebas iklan, download lagu offline, bisa perpanjang akun lama.',
     variationConfig: {
@@ -76,6 +79,7 @@ export const initialProducts = [
     pillar: 'digital',
     category: 'Pulsa & Kuota',
     price: 25000,
+    Weight: 0,
     image: '/images/kuota-data.jpg',
     description: 'Pengisian paket data internet langsung masuk ke nomor tujuan.',
     variationConfig: {
@@ -103,26 +107,29 @@ export const initialProducts = [
     pillar: 'physical',
     category: 'Beauty & Skincare',
     price: 120000,
+    weight: 500,
     originCity: 'Sukoharjo',
     image: '/images/skincare-glow.jpg',
     description: 'Paket perawatan wajah lengkap, pengiriman dari supplier Sukoharjo.',
   },
   {
     id: 'phys-02',
-    name: 'Hijab Bella Square Premium',
+    name: 'Pashmina Silk Premium',
     pillar: 'physical',
-    category: 'Fashion & Style',
-    price: 35000,
+    category: 'Fashion',
+    price: 55000,
+    weight: 250, // <-- Berat 250 gr
     originCity: 'Kudus',
     image: '/images/hijab-bella.jpg',
     description: 'Hijab segiempat bahan adem mudah dibentuk, pengiriman dari Kudus.',
   },
   {
     id: 'phys-03',
-    name: 'Press-On Nail Art Custom Handmade',
+    name: 'Press-On Nails Custom Cat Eye',
     pillar: 'physical',
     category: 'Nail Art',
     price: 45000,
+    weight: 150, // <-- Berat produk dalam gram (150 gr)
     originCity: 'Kediri',
     image: '/images/nail-art.jpg',
     description: 'Kuku tempel handmade reusable gratis Nail Prep Kit, pengiriman dari Kediri.',
@@ -137,6 +144,7 @@ export const initialProducts = [
     pillar: 'service',
     category: 'Genzstation Academic',
     price: 5000,
+    Weight: 0,
     image: '/images/turnitin.jpg',
     description: 'Cek kemiripan skripsi/jurnal cepat 5-15 menit, aman tanpa masuk database.',
   },
@@ -146,6 +154,7 @@ export const initialProducts = [
     pillar: 'service',
     category: 'Genzstation Academic',
     price: 50000,
+    Weight: 0,
     image: '/images/parafrase.jpg',
     description: 'Perbaikan struktur kalimat manual sesuai PUEBI hingga lolos batas kampus.',
   },

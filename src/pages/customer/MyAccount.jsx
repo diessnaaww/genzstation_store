@@ -10,7 +10,7 @@ import {
   ShoppingBag,
   Save,
 } from 'lucide-react';
-import { fetchOrdersFromSheets } from '../../services/sheetsService.js';
+import { fetchOrdersFromSheets } from '../../services/googleSheets.js';
 import { initialProducts } from '../../data/products.js';
 import { useCart } from '../../contexts/CartContext.jsx';
 

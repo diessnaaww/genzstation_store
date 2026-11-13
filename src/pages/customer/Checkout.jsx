@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext.jsx';
 import { useAuth } from '../../contexts/AuthContext.jsx';
-import { saveOrderToSheets } from '../../services/sheetsService.js';
+import { saveOrderToSheets } from '../../services/googleSheets.js';
+import { calculatePackageShipping } from '../../utils/shippingCalculator.js';
 import {
   ArrowLeft,
   Send,
@@ -23,6 +24,7 @@ import {
   AlertCircle,
   ExternalLink,
   Info,
+  Scale,
 } from 'lucide-react';
 
 // Konfigurasi Metode Pembayaran & Tarif Biaya Layanan Otomatis
@@ -82,6 +84,14 @@ export const Checkout = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [completedOrder, setCompletedOrder] = useState(null);
 
+  // State Dropdown Wilayah Indonesia (Open API Gratis)
+  const [provinces, setProvinces] = useState([]);
+  const [regencies, setRegencies] = useState([]);
+  const [districts, setDistricts] = useState([]);
+  const [selectedProvId, setSelectedProvId] = useState('');
+  const [selectedRegencyId, setSelectedRegencyId] = useState('');
+  const [manualRegionMode, setManualRegionMode] = useState(false);
+
   // State Kode Promo
   const [promoInput, setPromoInput] = useState('');
   const [appliedPromo, setAppliedPromo] = useState(null);
@@ -111,7 +121,6 @@ export const Checkout = () => {
     };
   });
 
-  // Isi otomatis nama & email jika pengguna sudah login
   useEffect(() => {
     if (user) {
       setFormData((prev) => ({
@@ -131,6 +140,58 @@ export const Checkout = () => {
   const hasDigital = digitalItems.length > 0;
   const hasService = serviceItems.length > 0;
 
+  // Muat daftar Provinsi Indonesia gratis saat ada item fisik
+  useEffect(() => {
+    if (!hasPhysical || manualRegionMode) return;
+    fetch('https://www.emsifa.com/api-wilayah-indonesia/api/provinces.json')
+      .then((res) => res.json())
+      .then((data) => setProvinces(data))
+      .catch(() => setManualRegionMode(true));
+  }, [hasPhysical, manualRegionMode]);
+
+  // Muat daftar Kota/Kabupaten saat Provinsi dipilih
+  const handleProvinceSelect = (e) => {
+    const provId = e.target.value;
+    const provObj = provinces.find((p) => p.id === provId);
+    setSelectedProvId(provId);
+    setSelectedRegencyId('');
+    setRegencies([]);
+    setDistricts([]);
+    setFormData((prev) => ({
+      ...prev,
+      province: provObj ? provObj.name : '',
+      city: '',
+      district: '',
+    }));
+
+    if (provId) {
+      fetch(`https://www.emsifa.com/api-wilayah-indonesia/api/regencies/${provId}.json`)
+        .then((res) => res.json())
+        .then((data) => setRegencies(data))
+        .catch(() => setManualRegionMode(true));
+    }
+  };
+
+  // Muat daftar Kecamatan saat Kota/Kabupaten dipilih
+  const handleRegencySelect = (e) => {
+    const regId = e.target.value;
+    const regObj = regencies.find((r) => r.id === regId);
+    setSelectedRegencyId(regId);
+    setDistricts([]);
+    setFormData((prev) => ({
+      ...prev,
+      city: regObj ? regObj.name : '',
+      district: '',
+    }));
+
+    if (regId) {
+      fetch(`https://www.emsifa.com/api-wilayah-indonesia/api/districts/${regId}.json`)
+        .then((res) => res.json())
+        .then((data) => setDistricts(data))
+        .catch(() => setManualRegionMode(true));
+    }
+  };
+
   // Kelompokkan produk fisik berdasarkan kota asal supplier (Multi-Origin Dropship)
   const physicalPackages = physicalItems.reduce((acc, item) => {
     const origin = item.originCity || 'Gudang Mitra';
@@ -141,7 +202,28 @@ export const Checkout = () => {
 
   const originCitiesList = Object.keys(physicalPackages);
 
-  // Perhitungan Otomatis: Subtotal -> Diskon -> Biaya Layanan Pembayaran -> Total Akhir
+  // Hitung berat & ongkos kirim otomatis per masing-masing paket supplier
+  const shippingDetailsByOrigin = originCitiesList.reduce((acc, origin) => {
+    acc[origin] = calculatePackageShipping(
+      physicalPackages[origin],
+      formData.province,
+      formData.courier
+    );
+    return acc;
+  }, {});
+
+  const totalShippingCost = hasPhysical
+    ? originCitiesList.reduce((sum, origin) => sum + shippingDetailsByOrigin[origin].shippingCost, 0)
+    : 0;
+
+  const totalPhysicalWeightGram = hasPhysical
+    ? originCitiesList.reduce(
+        (sum, origin) => sum + shippingDetailsByOrigin[origin].totalWeightGram,
+        0
+      )
+    : 0;
+
+  // Perhitungan Otomatis: Subtotal -> Diskon -> Ongkir -> Biaya Layanan -> Total Akhir
   const subtotal = getTotalPrice();
 
   const discountAmount = appliedPromo
@@ -151,13 +233,14 @@ export const Checkout = () => {
     : 0;
 
   const netSubtotal = Math.max(0, subtotal - discountAmount);
+  const amountBeforeFee = netSubtotal + totalShippingCost;
 
   const selectedPayment = PAYMENT_METHODS[paymentMethod] || PAYMENT_METHODS.QRIS;
 
   const paymentServiceFee = (() => {
-    if (netSubtotal <= 0) return 0;
+    if (amountBeforeFee <= 0) return 0;
     if (selectedPayment.feeType === 'percent') {
-      return Math.round((netSubtotal * selectedPayment.feeValue) / 100);
+      return Math.round((amountBeforeFee * selectedPayment.feeValue) / 100);
     }
     if (selectedPayment.feeType === 'fixed') {
       return selectedPayment.feeValue;
@@ -165,7 +248,7 @@ export const Checkout = () => {
     return 0;
   })();
 
-  const finalTotal = netSubtotal + paymentServiceFee;
+  const finalTotal = amountBeforeFee + paymentServiceFee;
 
   const formatIDR = (price) =>
     new Intl.NumberFormat('id-ID', {
@@ -244,9 +327,14 @@ export const Checkout = () => {
     }
 
     if (hasPhysical) {
-      if (!formData.city.trim() || !formData.district.trim() || !formData.shippingAddress.trim()) {
+      if (
+        !formData.province.trim() ||
+        !formData.city.trim() ||
+        !formData.district.trim() ||
+        !formData.shippingAddress.trim()
+      ) {
         setErrorMsg(
-          'Lengkapi Kota/Kabupaten, Kecamatan, dan Alamat Lengkap untuk pengiriman produk fisik.'
+          'Lengkapi Provinsi, Kota/Kabupaten, Kecamatan, dan Alamat Lengkap untuk menghitung ongkir dan pengiriman.'
         );
         return;
       }
@@ -274,11 +362,12 @@ export const Checkout = () => {
       .join('; ');
 
     const fullShippingLocation = hasPhysical
-      ? `${formData.shippingAddress}, Kec. ${formData.district}, ${formData.city}, ${formData.province} ${formData.postalCode} | Kurir: ${formData.courier} | Pengirim Dropship: Genzstation.id`
+      ? `${formData.shippingAddress}, Kec. ${formData.district}, ${formData.city}, ${formData.province} ${formData.postalCode} | Kurir: ${formData.courier} | Total Berat: ${totalPhysicalWeightGram} gr | Ongkir: ${formatIDR(totalShippingCost)}`
       : '-';
 
     const extraInfo = [
       appliedPromo ? `Voucher: ${appliedPromo.code} (-${formatIDR(discountAmount)})` : '',
+      hasPhysical ? `Ongkir: ${formatIDR(totalShippingCost)} (${totalPhysicalWeightGram} gr)` : '',
       `Bayar: ${selectedPayment.shortLabel}`,
       `Biaya Layanan: ${paymentServiceFee > 0 ? formatIDR(paymentServiceFee) : 'Gratis'}`,
       formData.notes ? `Catatan: ${formData.notes}` : '',
@@ -305,12 +394,15 @@ export const Checkout = () => {
     let itemsListWA = '';
     if (hasPhysical) {
       originCitiesList.forEach((origin, idx) => {
+        const pkgShip = shippingDetailsByOrigin[origin];
         itemsListWA += `\n📦 *Paket Fisik ${idx + 1} (Gudang Asal: ${origin})*\n`;
         physicalPackages[origin].forEach((item) => {
-          itemsListWA += `  • ${item.name} (${item.quantity}x) = ${formatIDR(
+          const itemWeight = (Number(item.weight) > 0 ? Number(item.weight) : 250) * item.quantity;
+          itemsListWA += `  • ${item.name} (${item.quantity}x | ${itemWeight} gr) = ${formatIDR(
             item.price * item.quantity
           )}\n`;
         });
+        itemsListWA += `  _↳ Berat Paket: ${pkgShip.totalWeightGram} gr (${pkgShip.billableKg} kg) • Ongkir ${formData.courier}: ${formatIDR(pkgShip.shippingCost)}_\n`;
       });
     }
     if (hasDigital) {
@@ -343,7 +435,7 @@ export const Checkout = () => {
       waMessage += `*ALAMAT & EKSPEDISI (DROPSHIP):*\n`;
       waMessage += `• Alamat: ${formData.shippingAddress}\n`;
       waMessage += `• Wilayah: Kec. ${formData.district}, ${formData.city}, ${formData.province} ${formData.postalCode}\n`;
-      waMessage += `• Ekspedisi Pilihan: ${formData.courier}\n\n`;
+      waMessage += `• Ekspedisi: ${formData.courier}\n\n`;
     }
     if (hasDigital) {
       waMessage += `*TUJUAN PRODUK DIGITAL:*\n`;
@@ -363,16 +455,14 @@ export const Checkout = () => {
     if (appliedPromo) {
       waMessage += `• Diskon (${appliedPromo.code}): -${formatIDR(discountAmount)}\n`;
     }
+    if (hasPhysical) {
+      waMessage += `• Total Ongkir (${totalPhysicalWeightGram} gr): +${formatIDR(totalShippingCost)}\n`;
+    }
     waMessage += `• Biaya Layanan (${selectedPayment.shortLabel}): ${
-      paymentServiceFee > 0 ? formatIDR(paymentServiceFee) : 'Gratis (Rp 0)'
+      paymentServiceFee > 0 ? `+${formatIDR(paymentServiceFee)}` : 'Gratis (Rp 0)'
     }\n`;
     waMessage += `*TOTAL PEMBAYARAN: ${formatIDR(finalTotal)}*\n`;
     waMessage += `------------------------------------\n`;
-    if (hasPhysical) {
-      waMessage += `_Catatan: Mohon info rincian ongkir ${formData.courier} dari asal ${originCitiesList.join(
-        ' & '
-      )} ke Kec. ${formData.district}, ${formData.city}._\n`;
-    }
 
     const whatsappUrl = `https://wa.me/${adminWA}?text=${encodeURIComponent(waMessage)}`;
 
@@ -380,6 +470,7 @@ export const Checkout = () => {
     setCompletedOrder({
       orderId: generatedOrderId,
       total: finalTotal,
+      shippingCost: totalShippingCost,
       serviceFee: paymentServiceFee,
       paymentLabel: selectedPayment.shortLabel,
       whatsappUrl,
@@ -421,11 +512,10 @@ export const Checkout = () => {
               Total Pembayaran: {formatIDR(completedOrder.total)}
             </p>
             <p className="text-[11px] text-gray-500">
-              Metode: {completedOrder.paymentLabel} (
-              {completedOrder.serviceFee > 0
-                ? `Termasuk biaya layanan ${formatIDR(completedOrder.serviceFee)}`
-                : 'Bebas biaya layanan'}
-              )
+              Metode: {completedOrder.paymentLabel}
+              {completedOrder.hasPhysical
+                ? ` • Termasuk ongkir ${formatIDR(completedOrder.shippingCost)}`
+                : ''}
             </p>
           </div>
 
@@ -510,7 +600,7 @@ export const Checkout = () => {
             Checkout Pesanan
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 mt-1">
-            Formulir dan rincian biaya layanan otomatis menyesuaikan pilihan Anda.
+            Berat produk, ongkos kirim per gudang asal, dan biaya layanan dihitung otomatis.
           </p>
         </div>
 
@@ -576,16 +666,16 @@ export const Checkout = () => {
               </div>
             </div>
 
-            {/* 2. BLOK KONDISIONAL PRODUK FISIK */}
+            {/* 2. BLOK KONDISIONAL PRODUK FISIK + KALKULATOR ONGKIR WILAYAH */}
             {hasPhysical && (
               <div className="bg-white p-5 sm:p-6 rounded-2xl border border-purple-100 shadow-2xs space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
                   <h2 className="font-bold text-purple-900 text-base flex items-center gap-2">
                     <Package size={18} className="text-purple-600" />
-                    <span>Alamat & Ekspedisi (Produk Fisik)</span>
+                    <span>Alamat & Kalkulator Ongkir Otomatis</span>
                   </h2>
                   <span className="text-[11px] font-bold bg-purple-100 text-purple-700 px-2.5 py-0.5 rounded-full">
-                    {originCitiesList.length} Gudang Asal
+                    {originCitiesList.length} Gudang Asal • {totalPhysicalWeightGram} gr
                   </span>
                 </div>
 
@@ -595,65 +685,149 @@ export const Checkout = () => {
                     <span>Transparansi Pengiriman Langsung dari Mitra Supplier</span>
                   </div>
                   <p className="leading-relaxed text-amber-900/90 text-[11px]">
-                    Produk fisik dikirim langsung dari mitra resmi kami di{' '}
-                    <strong>{originCitiesList.join(', ')}</strong> atas nama toko{' '}
-                    <strong>Genzstation.id</strong>.{' '}
-                    {originCitiesList.length > 1
-                      ? 'Karena berasal dari kota berbeda, paket dikirim terpisah dengan nomor resi dan ongkir masing-masing.'
-                      : 'Ongkos kirim dihitung dari kota asal supplier menuju kecamatan tujuan Anda.'}
+                    Produk fisik dikirim dari <strong>{originCitiesList.join(', ')}</strong> atas
+                    nama <strong>Genzstation.id</strong>. Pilih Provinsi tujuan di bawah agar
+                    sistem menghitung ongkir otomatis sesuai berat paket.
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Provinsi</label>
-                    <input
-                      type="text"
-                      name="province"
-                      value={formData.province}
-                      onChange={handleInputChange}
-                      placeholder="Contoh: Jawa Timur"
-                      className="w-full p-2.5 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-purple-600 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">
-                      Kota / Kabupaten *
-                    </label>
-                    <input
-                      type="text"
-                      name="city"
-                      value={formData.city}
-                      onChange={handleInputChange}
-                      placeholder="Contoh: Kab. Bangkalan"
-                      className="w-full p-2.5 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-purple-600 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">
-                      Kecamatan *
-                    </label>
-                    <input
-                      type="text"
-                      name="district"
-                      value={formData.district}
-                      onChange={handleInputChange}
-                      placeholder="Contoh: Kamal"
-                      className="w-full p-2.5 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-purple-600 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Kode Pos</label>
-                    <input
-                      type="text"
-                      name="postalCode"
-                      value={formData.postalCode}
-                      onChange={handleInputChange}
-                      placeholder="Contoh: 69162"
-                      className="w-full p-2.5 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-purple-600 focus:outline-none"
-                    />
-                  </div>
+                {/* Pilihan Wilayah Indonesia Otomatis atau Manual */}
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setManualRegionMode(!manualRegionMode)}
+                    className="text-[11px] font-semibold text-purple-600 hover:underline"
+                  >
+                    {manualRegionMode
+                      ? 'Gunakan daftar pilihan wilayah otomatis'
+                      : 'Wilayah tidak muncul? Ketik manual'}
+                  </button>
                 </div>
+
+                {!manualRegionMode ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">
+                        Provinsi Tujuan *
+                      </label>
+                      <select
+                        value={selectedProvId}
+                        onChange={handleProvinceSelect}
+                        className="w-full p-2.5 border border-gray-200 rounded-xl text-xs bg-white focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                      >
+                        <option value="">-- Pilih Provinsi --</option>
+                        {provinces.map((prov) => (
+                          <option key={prov.id} value={prov.id}>
+                            {prov.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">
+                        Kota / Kabupaten *
+                      </label>
+                      <select
+                        value={selectedRegencyId}
+                        onChange={handleRegencySelect}
+                        disabled={!selectedProvId}
+                        className="w-full p-2.5 border border-gray-200 rounded-xl text-xs bg-white disabled:bg-gray-100 focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                      >
+                        <option value="">-- Pilih Kota/Kabupaten --</option>
+                        {regencies.map((reg) => (
+                          <option key={reg.id} value={reg.id}>
+                            {reg.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">
+                        Kecamatan *
+                      </label>
+                      <select
+                        value={formData.district}
+                        onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+                        disabled={!selectedRegencyId}
+                        className="w-full p-2.5 border border-gray-200 rounded-xl text-xs bg-white disabled:bg-gray-100 focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                      >
+                        <option value="">-- Pilih Kecamatan --</option>
+                        {districts.map((dist) => (
+                          <option key={dist.id} value={dist.name}>
+                            {dist.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Kode Pos</label>
+                      <input
+                        type="text"
+                        name="postalCode"
+                        value={formData.postalCode}
+                        onChange={handleInputChange}
+                        placeholder="Contoh: 69162"
+                        className="w-full p-2.5 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">
+                        Provinsi *
+                      </label>
+                      <input
+                        type="text"
+                        name="province"
+                        value={formData.province}
+                        onChange={handleInputChange}
+                        placeholder="Contoh: Jawa Timur"
+                        className="w-full p-2.5 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">
+                        Kota / Kabupaten *
+                      </label>
+                      <input
+                        type="text"
+                        name="city"
+                        value={formData.city}
+                        onChange={handleInputChange}
+                        placeholder="Contoh: Kab. Bangkalan"
+                        className="w-full p-2.5 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">
+                        Kecamatan *
+                      </label>
+                      <input
+                        type="text"
+                        name="district"
+                        value={formData.district}
+                        onChange={handleInputChange}
+                        placeholder="Contoh: Kamal"
+                        className="w-full p-2.5 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Kode Pos</label>
+                      <input
+                        type="text"
+                        name="postalCode"
+                        value={formData.postalCode}
+                        onChange={handleInputChange}
+                        placeholder="Contoh: 69162"
+                        className="w-full p-2.5 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
@@ -669,31 +843,51 @@ export const Checkout = () => {
                   />
                 </div>
 
+                {/* Pilihan Ekspedisi J&T / JNE */}
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1.5">
                     Pilih Ekspedisi Pengiriman *
                   </label>
                   <div className="grid grid-cols-2 gap-3">
-                    {['J&T Express', 'JNE Reguler'].map((kurir) => (
-                      <button
-                        type="button"
-                        key={kurir}
-                        onClick={() => setFormData({ ...formData, courier: kurir })}
-                        className={`p-3 rounded-xl border text-left transition-all flex items-center justify-between ${
-                          formData.courier === kurir
-                            ? 'border-purple-600 bg-purple-50 text-purple-900 font-bold'
-                            : 'border-gray-200 bg-white text-gray-600 hover:border-purple-300'
-                        }`}
-                      >
-                        <span className="text-xs">{kurir}</span>
-                        <Truck
-                          size={15}
-                          className={
-                            formData.courier === kurir ? 'text-purple-600' : 'text-gray-400'
-                          }
-                        />
-                      </button>
-                    ))}
+                    {['J&T Express', 'JNE Reguler'].map((kurir) => {
+                      const estimatedTotalForKurir = originCitiesList.reduce(
+                        (sum, origin) =>
+                          sum +
+                          calculatePackageShipping(
+                            physicalPackages[origin],
+                            formData.province,
+                            kurir
+                          ).shippingCost,
+                        0
+                      );
+                      return (
+                        <button
+                          type="button"
+                          key={kurir}
+                          onClick={() => setFormData({ ...formData, courier: kurir })}
+                          className={`p-3 rounded-xl border text-left transition-all flex items-center justify-between ${
+                            formData.courier === kurir
+                              ? 'border-purple-600 bg-purple-50 text-purple-900 font-bold'
+                              : 'border-gray-200 bg-white text-gray-600 hover:border-purple-300'
+                          }`}
+                        >
+                          <div>
+                            <p className="text-xs font-bold">{kurir}</p>
+                            <p className="text-[11px] text-purple-700 font-semibold mt-0.5">
+                              {formData.province
+                                ? formatIDR(estimatedTotalForKurir)
+                                : 'Pilih provinsi dulu'}
+                            </p>
+                          </div>
+                          <Truck
+                            size={16}
+                            className={
+                              formData.courier === kurir ? 'text-purple-600' : 'text-gray-400'
+                            }
+                          />
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -718,9 +912,6 @@ export const Checkout = () => {
                     placeholder="Masukkan email untuk Canva Pro/Spotify atau No. HP untuk Pulsa/Kuota"
                     className="w-full p-2.5 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-lime-600 focus:outline-none"
                   />
-                  <p className="text-[11px] text-gray-400 mt-1">
-                    Pastikan penulisan email atau nomor HP sudah benar sebelum mengirim pesanan.
-                  </p>
                 </div>
               </div>
             )}
@@ -744,14 +935,11 @@ export const Checkout = () => {
                     placeholder="Tempel link Google Drive naskah Turnitin / target penurunan skor parafrase / brief desain Anda"
                     className="w-full p-2.5 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none"
                   />
-                  <p className="text-[11px] text-gray-400 mt-1">
-                    Pastikan akses Google Drive diatur ke &quot;Siapa saja yang memiliki link&quot;.
-                  </p>
                 </div>
               </div>
             )}
 
-            {/* 5. METODE PEMBAYARAN (OTOMATIS HITUNG BIAYA LAYANAN) */}
+            {/* 5. METODE PEMBAYARAN */}
             <div className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-100 shadow-2xs space-y-4">
               <div className="flex items-center justify-between border-b pb-3">
                 <h2 className="font-bold text-gray-900 text-base flex items-center gap-2">
@@ -794,7 +982,6 @@ export const Checkout = () => {
                 })}
               </div>
 
-              {/* Detail Tujuan Pembayaran */}
               <div className="bg-gray-50 border border-gray-200/80 rounded-xl p-3.5 flex items-center justify-between gap-3">
                 <div className="space-y-0.5">
                   <p className="text-[11px] font-bold text-gray-500">{selectedPayment.title}</p>
@@ -859,7 +1046,7 @@ export const Checkout = () => {
             </button>
           </form>
 
-          {/* KOLOM KANAN (5 KOLOM): RINGKASAN PAKET, VOUCHER, & RINCIAN BIAYA */}
+          {/* KOLOM KANAN (5 KOLOM): RINGKASAN BERAT, PAKET, VOUCHER, & BIAYA */}
           <div className="lg:col-span-5 space-y-5 lg:sticky lg:top-24">
             <div className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-100 shadow-2xs space-y-4">
               <h2 className="font-bold text-gray-900 border-b pb-3 text-base">
@@ -867,38 +1054,58 @@ export const Checkout = () => {
               </h2>
 
               <div className="space-y-3.5 max-h-80 overflow-y-auto pr-1">
-                {/* Paket Fisik per Wilayah Supplier */}
-                {originCitiesList.map((origin, idx) => (
-                  <div
-                    key={origin}
-                    className="bg-purple-50/50 border border-purple-100 rounded-xl p-3 space-y-2"
-                  >
-                    <div className="flex items-center justify-between text-[11px] font-bold text-purple-800 border-b border-purple-100 pb-1.5">
-                      <span className="flex items-center gap-1">
-                        <Package size={12} />
-                        Paket Fisik {idx + 1}
-                      </span>
-                      <span className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-md border border-purple-100">
-                        <MapPin size={10} className="text-purple-600" />
-                        Asal: {origin}
-                      </span>
-                    </div>
-
-                    {physicalPackages[origin].map((item) => (
-                      <div key={item.id} className="flex justify-between items-start text-xs">
-                        <div className="pr-2">
-                          <p className="font-semibold text-gray-800">{item.name}</p>
-                          <p className="text-gray-400">
-                            {item.quantity}x @ {formatIDR(item.price)}
-                          </p>
-                        </div>
-                        <span className="font-bold text-gray-900 shrink-0">
-                          {formatIDR(item.price * item.quantity)}
+                {/* Paket Fisik per Wilayah Supplier + Info Berat & Ongkir */}
+                {originCitiesList.map((origin, idx) => {
+                  const pkgShip = shippingDetailsByOrigin[origin];
+                  return (
+                    <div
+                      key={origin}
+                      className="bg-purple-50/50 border border-purple-100 rounded-xl p-3 space-y-2"
+                    >
+                      <div className="flex items-center justify-between text-[11px] font-bold text-purple-800 border-b border-purple-100 pb-1.5">
+                        <span className="flex items-center gap-1">
+                          <Package size={12} />
+                          Paket Fisik {idx + 1}
+                        </span>
+                        <span className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-md border border-purple-100">
+                          <MapPin size={10} className="text-purple-600" />
+                          Asal: {origin}
                         </span>
                       </div>
-                    ))}
-                  </div>
-                ))}
+
+                      {physicalPackages[origin].map((item) => {
+                        const unitWeight = Number(item.weight) > 0 ? Number(item.weight) : 250;
+                        return (
+                          <div key={item.id} className="flex justify-between items-start text-xs">
+                            <div className="pr-2">
+                              <p className="font-semibold text-gray-800">{item.name}</p>
+                              <p className="text-gray-400">
+                                {item.quantity}x @ {formatIDR(item.price)} •{' '}
+                                <span className="text-purple-700 font-medium">
+                                  {unitWeight * item.quantity} gr
+                                </span>
+                              </p>
+                            </div>
+                            <span className="font-bold text-gray-900 shrink-0">
+                              {formatIDR(item.price * item.quantity)}
+                            </span>
+                          </div>
+                        );
+                      })}
+
+                      {/* Sub-footer berat & ongkir paket */}
+                      <div className="pt-1.5 border-t border-purple-200/60 flex items-center justify-between text-[11px] text-purple-900">
+                        <span className="flex items-center gap-1 font-medium">
+                          <Scale size={11} />
+                          Berat: {pkgShip.totalWeightGram} gr ({pkgShip.billableKg} kg)
+                        </span>
+                        <span className="font-bold">
+                          Ongkir: {formData.province ? formatIDR(pkgShip.shippingCost) : '-'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
 
                 {/* Kelompok Produk Digital */}
                 {hasDigital && (
@@ -994,6 +1201,19 @@ export const Checkout = () => {
                   </div>
                 )}
 
+                <div className="flex justify-between text-gray-600">
+                  <span>
+                    Ongkos Kirim {hasPhysical ? `(${totalPhysicalWeightGram} gr)` : ''}
+                  </span>
+                  <span className="font-semibold text-purple-700">
+                    {hasPhysical
+                      ? formData.province
+                        ? `+${formatIDR(totalShippingCost)}`
+                        : 'Pilih Provinsi Tujuan'
+                      : 'Gratis (Rp 0)'}
+                  </span>
+                </div>
+
                 <div className="flex justify-between items-center text-gray-600">
                   <span className="flex items-center gap-1">
                     <span>Biaya Layanan ({selectedPayment.shortLabel})</span>
@@ -1005,13 +1225,6 @@ export const Checkout = () => {
                     }`}
                   >
                     {paymentServiceFee > 0 ? `+${formatIDR(paymentServiceFee)}` : 'Gratis (Rp 0)'}
-                  </span>
-                </div>
-
-                <div className="flex justify-between text-gray-600">
-                  <span>Ongkos Kirim</span>
-                  <span className="font-semibold text-purple-700">
-                    {hasPhysical ? 'Dihitung per Asal Gudang' : 'Gratis (Rp 0)'}
                   </span>
                 </div>
 

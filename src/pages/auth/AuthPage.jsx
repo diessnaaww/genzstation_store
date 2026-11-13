@@ -1,7 +1,7 @@
 import { Eye, EyeOff } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { isSupabaseConfigured, supabase } from '../../services/supabase'
+import { isSupabaseConfigured, supabase } from '../../services/googleSheets.js'
 import { useAuth } from '../../contexts/AuthContext'
 
 function AuthPage({ mode: modeProp }) {

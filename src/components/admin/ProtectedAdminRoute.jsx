@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { supabase, isSupabaseConfigured } from '../../lib/supabase'
+import { supabase, isSupabaseConfigured } from '../../services/googleSheets.js'
 
 function ProtectedAdminRoute() {
   const { user, loading } = useAuth()

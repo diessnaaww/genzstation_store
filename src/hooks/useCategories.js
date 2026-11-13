@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getActiveCategories } from '../services/categoryService'
-import { isSupabaseConfigured } from '../lib/supabase'
+import { isSupabaseConfigured } from '../services/googleSheets.js'
 
 export function useCategories() {
   const [categories, setCategories] = useState([])

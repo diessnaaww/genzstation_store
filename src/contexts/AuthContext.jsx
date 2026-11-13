@@ -1,33 +1,64 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { isSupabaseConfigured, supabase } from '../services/supabase'
+import { createContext, useContext, useState, useEffect } from 'react';
+import { isSheetsConfigured, sheetsClient } from '../services/googleSheets.js';
 
-const AuthContext = createContext(null)
+const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(isSupabaseConfigured)
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isSupabaseConfigured) {
-      return undefined
-    }
+    sheetsClient.auth.getSession().then(({ data }) => {
+      setUser(data?.session?.user || null);
+      setLoading(false);
+    });
 
-    supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null)
-      setLoading(false)
-    })
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-    })
-    return () => subscription.subscription.unsubscribe()
-  }, [])
+    const { data } = sheetsClient.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+      setLoading(false);
+    });
 
-  const value = useMemo(() => ({ user, loading, isSupabaseConfigured }), [user, loading])
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+    return () => {
+      data?.subscription?.unsubscribe();
+    };
+  }, []);
+
+  const login = async (email, password) => {
+    const { data, error } = await sheetsClient.auth.signInWithPassword({ email, password });
+    if (error) throw new Error(error.message || 'Login gagal');
+    return data.user;
+  };
+
+  const register = async (userData) => {
+    const { data, error } = await sheetsClient.auth.signUp({
+      email: userData.email,
+      password: userData.password,
+      options: { data: userData },
+    });
+    if (error) throw new Error(error.message || 'Registrasi gagal');
+    return data.user;
+  };
+
+  const logout = async () => {
+    await sheetsClient.auth.signOut();
+    setUser(null);
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        isSheetsConfigured,
+        isSupabaseConfigured: isSheetsConfigured,
+        login,
+        register,
+        logout,
+      }}
+    >
+      {!loading && children}
+    </AuthContext.Provider>
+  );
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext)
-  if (!context) throw new Error('useAuth must be used inside AuthProvider')
-  return context
-}
+export const useAuth = () => useContext(AuthContext);
