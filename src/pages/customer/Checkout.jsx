@@ -22,7 +22,56 @@ import {
   Clock,
   AlertCircle,
   ExternalLink,
+  Info,
 } from 'lucide-react';
+
+// Konfigurasi Metode Pembayaran & Tarif Biaya Layanan Otomatis
+const PAYMENT_METHODS = {
+  QRIS: {
+    id: 'QRIS',
+    shortLabel: 'QRIS Instan',
+    title: 'QRIS Genzstation.id (All E-Wallet & M-Banking)',
+    number: 'Kode QRIS dikirim otomatis via Admin / Pop-up',
+    holder: 'a.n. Genzstation Group Official',
+    feeType: 'percent',
+    feeValue: 0.7,
+    feeBadge: 'Biaya 0,7%',
+    canCopy: false,
+  },
+  VA: {
+    id: 'VA',
+    shortLabel: 'Virtual Account',
+    title: 'Virtual Account Bank (BCA / BRI / Mandiri / BNI)',
+    number: 'Nomor VA diterbitkan saat konfirmasi',
+    holder: 'a.n. Genzstation Group Official',
+    feeType: 'fixed',
+    feeValue: 4000,
+    feeBadge: 'Biaya Rp 4.000',
+    canCopy: false,
+  },
+  EWALLET: {
+    id: 'EWALLET',
+    shortLabel: 'DANA / GoPay',
+    title: 'E-Wallet (DANA / GoPay / ShopeePay)',
+    number: '085649750554',
+    holder: 'a.n. Adiesti Nuri Amanda',
+    feeType: 'percent',
+    feeValue: 1.5,
+    feeBadge: 'Biaya 1,5%',
+    canCopy: true,
+  },
+  MANUAL_BCA: {
+    id: 'MANUAL_BCA',
+    shortLabel: 'Transfer BCA',
+    title: 'Transfer Bank BCA (Verifikasi Manual)',
+    number: '1234567890',
+    holder: 'a.n. Adiesti Nuri Amanda',
+    feeType: 'free',
+    feeValue: 0,
+    feeBadge: 'Gratis (Rp 0)',
+    canCopy: true,
+  },
+};
 
 export const Checkout = () => {
   const navigate = useNavigate();
@@ -62,7 +111,7 @@ export const Checkout = () => {
     };
   });
 
-  // Isi otomatis nama & email jika pengguna sudah login via Firebase Auth
+  // Isi otomatis nama & email jika pengguna sudah login
   useEffect(() => {
     if (user) {
       setFormData((prev) => ({
@@ -92,14 +141,31 @@ export const Checkout = () => {
 
   const originCitiesList = Object.keys(physicalPackages);
 
-  // Perhitungan Subtotal, Diskon, dan Total Akhir
+  // Perhitungan Otomatis: Subtotal -> Diskon -> Biaya Layanan Pembayaran -> Total Akhir
   const subtotal = getTotalPrice();
+
   const discountAmount = appliedPromo
     ? appliedPromo.type === 'percent'
       ? Math.round((subtotal * appliedPromo.value) / 100)
       : appliedPromo.value
     : 0;
-  const finalTotal = Math.max(0, subtotal - discountAmount);
+
+  const netSubtotal = Math.max(0, subtotal - discountAmount);
+
+  const selectedPayment = PAYMENT_METHODS[paymentMethod] || PAYMENT_METHODS.QRIS;
+
+  const paymentServiceFee = (() => {
+    if (netSubtotal <= 0) return 0;
+    if (selectedPayment.feeType === 'percent') {
+      return Math.round((netSubtotal * selectedPayment.feeValue) / 100);
+    }
+    if (selectedPayment.feeType === 'fixed') {
+      return selectedPayment.feeValue;
+    }
+    return 0;
+  })();
+
+  const finalTotal = netSubtotal + paymentServiceFee;
 
   const formatIDR = (price) =>
     new Intl.NumberFormat('id-ID', {
@@ -139,7 +205,12 @@ export const Checkout = () => {
         });
         return;
       }
-      setAppliedPromo({ code: 'SKRIPSIAMAN', type: 'fixed', value: 5000, label: 'Potongan Rp 5.000' });
+      setAppliedPromo({
+        code: 'SKRIPSIAMAN',
+        type: 'fixed',
+        value: 5000,
+        label: 'Potongan Rp 5.000',
+      });
       setPromoFeedback({
         type: 'success',
         text: 'Voucher SKRIPSIAMAN (Potongan Rp 5.000) berhasil dipakai!',
@@ -148,25 +219,6 @@ export const Checkout = () => {
       setAppliedPromo(null);
       setPromoFeedback({ type: 'error', text: 'Kode voucher tidak valid atau sudah berakhir.' });
     }
-  };
-
-  // Data Rekening Pembayaran
-  const paymentAccounts = {
-    QRIS: {
-      title: 'QRIS Genzstation.id (All E-Wallet & M-Banking)',
-      number: 'Minta Kode QRIS via Admin WA',
-      holder: 'a.n. Genzstation Group Official',
-    },
-    BCA: {
-      title: 'Transfer Bank BCA',
-      number: '1234567890',
-      holder: 'a.n. Adiesti Nuri Amanda',
-    },
-    EWALLET: {
-      title: 'DANA / GoPay / ShopeePay',
-      number: '085649750554',
-      holder: 'a.n. Adiesti Nuri Amanda',
-    },
   };
 
   const handleCopyAccount = (text) => {
@@ -227,7 +279,8 @@ export const Checkout = () => {
 
     const extraInfo = [
       appliedPromo ? `Voucher: ${appliedPromo.code} (-${formatIDR(discountAmount)})` : '',
-      `Bayar: ${paymentMethod}`,
+      `Bayar: ${selectedPayment.shortLabel}`,
+      `Biaya Layanan: ${paymentServiceFee > 0 ? formatIDR(paymentServiceFee) : 'Gratis'}`,
       formData.notes ? `Catatan: ${formData.notes}` : '',
     ]
       .filter(Boolean)
@@ -284,7 +337,7 @@ export const Checkout = () => {
     waMessage += `• Nama: ${formData.customerName.trim()}\n`;
     waMessage += `• No. WA: ${formData.whatsappNumber.trim()}\n`;
     if (formData.customerEmail) waMessage += `• Email: ${formData.customerEmail.trim()}\n`;
-    waMessage += `• Metode Bayar: ${paymentMethod}\n\n`;
+    waMessage += `• Metode Bayar: ${selectedPayment.shortLabel}\n\n`;
 
     if (hasPhysical) {
       waMessage += `*ALAMAT & EKSPEDISI (DROPSHIP):*\n`;
@@ -306,11 +359,14 @@ export const Checkout = () => {
 
     waMessage += `*RINCIAN PESANAN:*${itemsListWA}\n`;
     waMessage += `------------------------------------\n`;
-    waMessage += `• Subtotal: ${formatIDR(subtotal)}\n`;
+    waMessage += `• Subtotal Produk: ${formatIDR(subtotal)}\n`;
     if (appliedPromo) {
       waMessage += `• Diskon (${appliedPromo.code}): -${formatIDR(discountAmount)}\n`;
     }
-    waMessage += `*TOTAL TAGIHAN PRODUK: ${formatIDR(finalTotal)}*\n`;
+    waMessage += `• Biaya Layanan (${selectedPayment.shortLabel}): ${
+      paymentServiceFee > 0 ? formatIDR(paymentServiceFee) : 'Gratis (Rp 0)'
+    }\n`;
+    waMessage += `*TOTAL PEMBAYARAN: ${formatIDR(finalTotal)}*\n`;
     waMessage += `------------------------------------\n`;
     if (hasPhysical) {
       waMessage += `_Catatan: Mohon info rincian ongkir ${formData.courier} dari asal ${originCitiesList.join(
@@ -324,6 +380,8 @@ export const Checkout = () => {
     setCompletedOrder({
       orderId: generatedOrderId,
       total: finalTotal,
+      serviceFee: paymentServiceFee,
+      paymentLabel: selectedPayment.shortLabel,
       whatsappUrl,
       hasPhysical,
       originCities: originCitiesList,
@@ -359,8 +417,15 @@ export const Checkout = () => {
             <p className="text-xl font-mono font-black text-purple-900">
               {completedOrder.orderId}
             </p>
-            <p className="text-xs font-bold text-gray-700 pt-1">
-              Total Produk: {formatIDR(completedOrder.total)}
+            <p className="text-xs font-bold text-gray-800 pt-1">
+              Total Pembayaran: {formatIDR(completedOrder.total)}
+            </p>
+            <p className="text-[11px] text-gray-500">
+              Metode: {completedOrder.paymentLabel} (
+              {completedOrder.serviceFee > 0
+                ? `Termasuk biaya layanan ${formatIDR(completedOrder.serviceFee)}`
+                : 'Bebas biaya layanan'}
+              )
             </p>
           </div>
 
@@ -445,7 +510,7 @@ export const Checkout = () => {
             Checkout Pesanan
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 mt-1">
-            Formulir otomatis menyesuaikan dengan kategori produk yang ada di keranjang Anda.
+            Formulir dan rincian biaya layanan otomatis menyesuaikan pilihan Anda.
           </p>
         </div>
 
@@ -459,7 +524,7 @@ export const Checkout = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* KOLOM KIRI (7 KOLOM): FORMULIR DINAMIS */}
           <form onSubmit={handleSubmitOrder} className="lg:col-span-7 space-y-6" noValidate>
-            {/* 1. DATA PEMESAN (SELALU MUNCUL) */}
+            {/* 1. DATA PEMESAN */}
             <div className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-100 shadow-2xs space-y-4">
               <h2 className="font-bold text-gray-900 border-b pb-3 text-base flex items-center gap-2">
                 <CheckCircle2 size={18} className="text-purple-600" />
@@ -511,7 +576,7 @@ export const Checkout = () => {
               </div>
             </div>
 
-            {/* 2. BLOK KONDISIONAL PRODUK FISIK (HANYA MUNCUL JIKA ADA BARANG FISIK) */}
+            {/* 2. BLOK KONDISIONAL PRODUK FISIK */}
             {hasPhysical && (
               <div className="bg-white p-5 sm:p-6 rounded-2xl border border-purple-100 shadow-2xs space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
@@ -524,7 +589,6 @@ export const Checkout = () => {
                   </span>
                 </div>
 
-                {/* Banner Transparansi Dropship Multi-Supplier */}
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 space-y-1 text-xs text-amber-950">
                   <div className="font-bold flex items-center gap-1.5 text-amber-900">
                     <Truck size={15} className="text-amber-600" />
@@ -605,7 +669,6 @@ export const Checkout = () => {
                   />
                 </div>
 
-                {/* Pilihan Ekspedisi J&T / JNE */}
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1.5">
                     Pilih Ekspedisi Pengiriman *
@@ -636,7 +699,7 @@ export const Checkout = () => {
               </div>
             )}
 
-            {/* 3. BLOK KONDISIONAL PRODUK DIGITAL (HANYA MUNCUL JIKA ADA PRODUK DIGITAL) */}
+            {/* 3. BLOK KONDISIONAL PRODUK DIGITAL */}
             {hasDigital && (
               <div className="bg-white p-5 sm:p-6 rounded-2xl border border-lime-200 shadow-2xs space-y-3.5">
                 <h2 className="font-bold text-lime-900 border-b pb-3 text-base flex items-center gap-2">
@@ -662,7 +725,7 @@ export const Checkout = () => {
               </div>
             )}
 
-            {/* 4. BLOK KONDISIONAL LAYANAN JASA (HANYA MUNCUL JIKA ADA LAYANAN JASA) */}
+            {/* 4. BLOK KONDISIONAL LAYANAN JASA */}
             {hasService && (
               <div className="bg-white p-5 sm:p-6 rounded-2xl border border-rose-200 shadow-2xs space-y-3.5">
                 <h2 className="font-bold text-rose-900 border-b pb-3 text-base flex items-center gap-2">
@@ -688,52 +751,63 @@ export const Checkout = () => {
               </div>
             )}
 
-            {/* 5. METODE PEMBAYARAN & CATATAN TAMBAHAN */}
+            {/* 5. METODE PEMBAYARAN (OTOMATIS HITUNG BIAYA LAYANAN) */}
             <div className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-100 shadow-2xs space-y-4">
-              <h2 className="font-bold text-gray-900 border-b pb-3 text-base flex items-center gap-2">
-                <CreditCard size={18} className="text-purple-600" />
-                <span>Metode Pembayaran & Catatan</span>
-              </h2>
-
-              <div className="grid grid-cols-3 gap-2.5">
-                {[
-                  { id: 'QRIS', label: 'QRIS Instan' },
-                  { id: 'BCA', label: 'Transfer BCA' },
-                  { id: 'EWALLET', label: 'DANA / GoPay' },
-                ].map((method) => (
-                  <button
-                    type="button"
-                    key={method.id}
-                    onClick={() => setPaymentMethod(method.id)}
-                    className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
-                      paymentMethod === method.id
-                        ? 'border-purple-600 bg-purple-600 text-white shadow-xs'
-                        : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-purple-50'
-                    }`}
-                  >
-                    {method.label}
-                  </button>
-                ))}
+              <div className="flex items-center justify-between border-b pb-3">
+                <h2 className="font-bold text-gray-900 text-base flex items-center gap-2">
+                  <CreditCard size={18} className="text-purple-600" />
+                  <span>Metode Pembayaran</span>
+                </h2>
+                <span className="text-[11px] font-semibold text-gray-500">
+                  Biaya layanan dihitung otomatis
+                </span>
               </div>
 
-              {/* Detail Nomor Rekening / Tujuan Pembayaran */}
+              <div className="grid grid-cols-2 gap-2.5">
+                {Object.values(PAYMENT_METHODS).map((method) => {
+                  const isSelected = paymentMethod === method.id;
+                  return (
+                    <button
+                      type="button"
+                      key={method.id}
+                      onClick={() => setPaymentMethod(method.id)}
+                      className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between gap-1 ${
+                        isSelected
+                          ? 'border-purple-600 bg-purple-50 text-purple-950 shadow-2xs'
+                          : 'border-gray-200 bg-gray-50/70 text-gray-700 hover:bg-purple-50/50'
+                      }`}
+                    >
+                      <span className="text-xs font-bold">{method.shortLabel}</span>
+                      <span
+                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-md w-fit ${
+                          method.feeType === 'free'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : isSelected
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-gray-200/80 text-gray-600'
+                        }`}
+                      >
+                        {method.feeBadge}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Detail Tujuan Pembayaran */}
               <div className="bg-gray-50 border border-gray-200/80 rounded-xl p-3.5 flex items-center justify-between gap-3">
                 <div className="space-y-0.5">
-                  <p className="text-[11px] font-bold text-gray-500">
-                    {paymentAccounts[paymentMethod].title}
-                  </p>
+                  <p className="text-[11px] font-bold text-gray-500">{selectedPayment.title}</p>
                   <p className="text-sm font-mono font-extrabold text-gray-900">
-                    {paymentAccounts[paymentMethod].number}
+                    {selectedPayment.number}
                   </p>
-                  <p className="text-[11px] text-gray-500">
-                    {paymentAccounts[paymentMethod].holder}
-                  </p>
+                  <p className="text-[11px] text-gray-500">{selectedPayment.holder}</p>
                 </div>
 
-                {paymentMethod !== 'QRIS' && (
+                {selectedPayment.canCopy && (
                   <button
                     type="button"
-                    onClick={() => handleCopyAccount(paymentAccounts[paymentMethod].number)}
+                    onClick={() => handleCopyAccount(selectedPayment.number)}
                     className="bg-white border border-gray-200 hover:border-purple-400 text-purple-700 font-bold text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 shrink-0 transition-all"
                   >
                     {copiedAccount ? (
@@ -779,13 +853,13 @@ export const Checkout = () => {
               ) : (
                 <>
                   <Send size={18} />
-                  <span>Buat Pesanan & Konfirmasi Pembayaran</span>
+                  <span>Buat Pesanan ({formatIDR(finalTotal)})</span>
                 </>
               )}
             </button>
           </form>
 
-          {/* KOLOM KANAN (5 KOLOM): RINGKASAN PAKET, VOUCHER, & SLA */}
+          {/* KOLOM KANAN (5 KOLOM): RINGKASAN PAKET, VOUCHER, & RINCIAN BIAYA */}
           <div className="lg:col-span-5 space-y-5 lg:sticky lg:top-24">
             <div className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-100 shadow-2xs space-y-4">
               <h2 className="font-bold text-gray-900 border-b pb-3 text-base">
@@ -906,7 +980,7 @@ export const Checkout = () => {
                 )}
               </div>
 
-              {/* Rincian Biaya */}
+              {/* Rincian Biaya Otomatis */}
               <div className="border-t pt-3 space-y-2 text-xs">
                 <div className="flex justify-between text-gray-600">
                   <span>Subtotal Produk</span>
@@ -919,6 +993,20 @@ export const Checkout = () => {
                     <span>-{formatIDR(discountAmount)}</span>
                   </div>
                 )}
+
+                <div className="flex justify-between items-center text-gray-600">
+                  <span className="flex items-center gap-1">
+                    <span>Biaya Layanan ({selectedPayment.shortLabel})</span>
+                    <Info size={12} className="text-gray-400" />
+                  </span>
+                  <span
+                    className={`font-semibold ${
+                      paymentServiceFee === 0 ? 'text-emerald-600' : 'text-gray-800'
+                    }`}
+                  >
+                    {paymentServiceFee > 0 ? `+${formatIDR(paymentServiceFee)}` : 'Gratis (Rp 0)'}
+                  </span>
+                </div>
 
                 <div className="flex justify-between text-gray-600">
                   <span>Ongkos Kirim</span>
