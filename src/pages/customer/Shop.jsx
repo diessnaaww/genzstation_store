@@ -1,18 +1,22 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { initialProducts } from '../../data/products.js';
 import { ProductCard } from '../../components/common/ProductCard.jsx';
 import { SearchBar } from '../../components/common/SearchBar.jsx';
 import { FilterPanel } from '../../components/common/FilterPanel.jsx';
-import { PackageSearch, ShoppingBag, Truck, MapPin } from 'lucide-react';
-import { useCart } from '../../contexts/CartContext.jsx';
+import { PackageSearch, Truck, MapPin } from 'lucide-react';
 
 export const Shop = () => {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchParams] = useSearchParams();
+  const categoryQuery = searchParams.get('category') || '';
+
+  const [searchTerm, setSearchTerm] = useState(categoryQuery);
   const [selectedPillar, setSelectedPillar] = useState('all');
   const [sortBy, setSortBy] = useState('latest');
 
-  const { cartItems, setIsCartOpen } = useCart();
-  const totalCartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
+  useEffect(() => {
+    setSearchTerm(categoryQuery);
+  }, [categoryQuery]);
 
   const filteredProducts = useMemo(() => {
     return initialProducts
@@ -33,32 +37,16 @@ export const Shop = () => {
   return (
     <div className="min-h-screen bg-[#FAFAFF] py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto space-y-5">
-        {/* Header Toko */}
-        <div className="flex justify-between items-center bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
-              Genzstation.id
-            </h1>
-            <p className="text-xs sm:text-sm text-gray-500 mt-1">
-              Storefront 3 Pilar: Physical Products, Digital & Services
-            </p>
-          </div>
-
-          <button
-            onClick={() => setIsCartOpen(true)}
-            className="relative bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-2xl transition-all shadow-md flex items-center gap-2 active:scale-95"
-          >
-            <ShoppingBag size={20} />
-            <span className="hidden sm:inline text-xs font-bold">Keranjang</span>
-            {totalCartCount > 0 && (
-              <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-xs font-extrabold w-5 h-5 rounded-full flex items-center justify-center border-2 border-white animate-bounce">
-                {totalCartCount}
-              </span>
-            )}
-          </button>
+        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-2xs">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">
+            Seluruh Katalog Produk
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">
+            Temukan kebutuhan produk fisik, aplikasi digital premium, dan layanan jasa profesional.
+          </p>
         </div>
 
-        {/* Banner Transparansi Pengiriman Multi-Wilayah */}
+        {/* Banner Transparansi Pengiriman */}
         <div className="bg-gradient-to-r from-purple-50 via-white to-amber-50/70 border border-purple-100 rounded-2xl p-3.5 sm:p-4 flex items-start sm:items-center gap-3 shadow-2xs">
           <div className="bg-purple-100 text-purple-700 p-2 rounded-xl shrink-0 mt-0.5 sm:mt-0">
             <Truck size={18} />
@@ -69,7 +57,7 @@ export const Shop = () => {
             <span className="inline-flex items-center gap-0.5 font-semibold text-purple-700">
               <MapPin size={11} /> Sukoharjo, Kudus, & Kediri
             </span>
-            ). Jika Anda membeli produk dari kota asal berbeda dalam satu pesanan, paket akan dikirim terpisah sesuai gudang masing-masing.
+            ). Pembelian dari kota asal berbeda akan dikirim terpisah sesuai gudang masing-masing.
           </div>
         </div>
 
