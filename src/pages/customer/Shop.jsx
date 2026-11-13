@@ -55,7 +55,7 @@ export const Shop = () => {
             <span className="font-bold text-gray-900">Info Transparansi Pengiriman: </span>
             Produk fisik dikirim langsung dari kota mitra supplier resmi kami (
             <span className="inline-flex items-center gap-0.5 font-semibold text-purple-700">
-              <MapPin size={11} /> Sukoharjo, Kudus, & Kediri
+              <MapPin size={11} /> Surabaya, Malang,Sukoharjo, Kudus, & Kediri
             </span>
             ). Pembelian dari kota asal berbeda akan dikirim terpisah sesuai gudang masing-masing.
           </div>

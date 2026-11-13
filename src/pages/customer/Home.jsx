@@ -54,7 +54,7 @@ export const Home = () => {
               </h2>
               <p className="leading-relaxed">
                 Produk fisik dikirim langsung dari mitra supplier resmi kami di{' '}
-                <strong className="text-purple-700">Sukoharjo, Kudus, & Kediri</strong>. Pembelian lintas wilayah dikirim terpisah sesuai gudang asal dengan rincian ongkir transparan.
+                <strong className="text-purple-700"> Surabaya, Malang, Sukoharjo, Kudus, & Kediri</strong>. Pembelian lintas wilayah dikirim terpisah sesuai gudang asal dengan rincian ongkir transparan.
               </p>
             </div>
           </div>
