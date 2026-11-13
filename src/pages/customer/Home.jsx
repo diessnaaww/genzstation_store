@@ -18,7 +18,7 @@ export const Home = () => {
               One-Stop Digital & Lifestyle Store
             </span>
             <h1 className="text-2xl sm:text-4xl font-extrabold leading-tight">
-              Belanja Produk Fisik, Aplikasi Premium & Jasa Akademik dalam Satu Tempat
+              Belanja Produk Fisik, Aplikasi Premium & Jasa Layanan dalam Satu Tempat
             </h1>
             <p className="text-xs sm:text-sm text-purple-100 leading-relaxed">
               Mulai dari skincare, hijab, press-on nail art handmade, hingga Canva Pro dan jasa cek Turnitin No-Repository cepat & terpercaya.
