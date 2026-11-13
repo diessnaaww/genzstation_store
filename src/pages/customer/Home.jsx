@@ -21,7 +21,7 @@ export const Home = () => {
               Belanja Produk Fisik, Aplikasi Premium & Jasa Layanan dalam Satu Tempat
             </h1>
             <p className="text-xs sm:text-sm text-purple-100 leading-relaxed">
-              Mulai dari skincare, hijab, press-on nail art handmade, hingga Canva Pro dan jasa cek Turnitin No-Repository cepat & terpercaya.
+              Mulai dari skincare & Make Up, hijab & Style, press-on nail art handmade & Aksesoris, hingga Aplikasi Premiumdan Layanan berupa: Layanan Akademik, Top Up Game, dan lainnya cepat & terpercaya.
             </p>
             <div className="flex flex-wrap gap-3 pt-2">
               <Link
