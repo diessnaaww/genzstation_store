@@ -64,8 +64,9 @@ export const Home = () => {
           </div>
         </section>
 
-        {/* Ringkasan 3 Pilar */}
+        {/* Ringkasan 3 Pilar (POSISI KODE LINK BERADA DI SINI) */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Pilar 1: Produk Fisik */}
           <Link
             to="/categories"
             className="bg-white p-5 rounded-2xl border border-gray-100 hover:border-purple-300 transition-all shadow-2xs space-y-2"
@@ -79,8 +80,9 @@ export const Home = () => {
             </p>
           </Link>
 
+          {/* Pilar 2: Produk Digital */}
           <Link
-            to="/digital-services"
+            to="/digital"
             className="bg-white p-5 rounded-2xl border border-gray-100 hover:border-lime-400 transition-all shadow-2xs space-y-2"
           >
             <span className="inline-flex items-center gap-1 text-xs font-bold text-lime-800 bg-lime-100 px-2.5 py-1 rounded-lg">
@@ -92,8 +94,9 @@ export const Home = () => {
             </p>
           </Link>
 
+          {/* Pilar 3: Layanan Jasa */}
           <Link
-            to="/digital-services"
+            to="/services"
             className="bg-white p-5 rounded-2xl border border-gray-100 hover:border-rose-300 transition-all shadow-2xs space-y-2"
           >
             <span className="inline-flex items-center gap-1 text-xs font-bold text-rose-700 bg-rose-50 px-2.5 py-1 rounded-lg">
