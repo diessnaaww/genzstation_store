@@ -2,7 +2,18 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext.jsx';
 import { saveOrderToSheets } from '../../services/sheetsService.js';
-import { ArrowLeft, Send, CheckCircle2, Package, Zap, FileText, ShoppingBag, Loader2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Send,
+  CheckCircle2,
+  Package,
+  Zap,
+  FileText,
+  ShoppingBag,
+  Loader2,
+  Truck,
+  MapPin,
+} from 'lucide-react';
 
 export const Checkout = () => {
   const navigate = useNavigate();
@@ -18,12 +29,29 @@ export const Checkout = () => {
     notes: '',
   });
 
-  const hasPhysical = cartItems.some((item) => item.pillar === 'physical');
+  const physicalItems = cartItems.filter((item) => item.pillar === 'physical');
+  const nonPhysicalItems = cartItems.filter((item) => item.pillar !== 'physical');
+
+  const hasPhysical = physicalItems.length > 0;
   const hasDigital = cartItems.some((item) => item.pillar === 'digital');
   const hasService = cartItems.some((item) => item.pillar === 'service');
 
+  // Kelompokkan item fisik berdasarkan kota asal supplier
+  const physicalPackages = physicalItems.reduce((acc, item) => {
+    const origin = item.originCity || 'Gudang Pusat';
+    if (!acc[origin]) acc[origin] = [];
+    acc[origin].push(item);
+    return acc;
+  }, {});
+
+  const originCitiesList = Object.keys(physicalPackages);
+
   const formatIDR = (price) => {
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(price);
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      maximumFractionDigits: 0,
+    }).format(price);
   };
 
   const handleInputChange = (e) => {
@@ -41,14 +69,12 @@ export const Checkout = () => {
 
     setIsSubmitting(true);
 
-    // 1. Kelompokkan data untuk Google Sheets & WhatsApp
     const uniquePillars = [...new Set(cartItems.map((item) => item.pillar))].join(', ');
     const uniqueOrigins = [...new Set(cartItems.map((item) => item.originCity || 'Digital/Pusat'))].join(', ');
     const itemsSummaryText = cartItems
       .map((item) => `${item.name} (${item.quantity}x)`)
       .join('; ');
 
-    // 2. Simpan ke Database Google Sheets via Service Terpusat
     const sheetResult = await saveOrderToSheets({
       customerName: formData.customerName,
       whatsappNumber: formData.whatsappNumber,
@@ -63,7 +89,6 @@ export const Checkout = () => {
 
     const orderIdText = sheetResult?.orderId ? ` (${sheetResult.orderId})` : '';
 
-    // 3. Susun Rincian Paket Multi-Supplier untuk WhatsApp
     const groupedByOrigin = cartItems.reduce((acc, item) => {
       const origin = item.originCity || 'Non-Fisik / Pusat';
       if (!acc[origin]) acc[origin] = [];
@@ -104,7 +129,7 @@ export const Checkout = () => {
     waMessage += `*SUBTOTAL PRODUK: ${formatIDR(getTotalPrice())}*\n`;
     waMessage += `-------------------------------\n`;
     if (hasPhysical) {
-      waMessage += `_Catatan: Ongkir dihitung sesuai kota asal masing-masing supplier._\n`;
+      waMessage += `_Catatan: Ongkir dihitung terpisah sesuai masing-masing kota asal pengiriman (${originCitiesList.join(', ')})._\n`;
     }
 
     const encodedMessage = encodeURIComponent(waMessage);
@@ -120,7 +145,9 @@ export const Checkout = () => {
       <div className="min-h-screen bg-[#FAFAFF] flex flex-col items-center justify-center p-4">
         <ShoppingBag size={56} className="text-purple-300 mb-4" />
         <h2 className="text-xl font-bold text-gray-800">Keranjang Anda Kosong</h2>
-        <p className="text-sm text-gray-500 mt-1 mb-6">Silakan pilih produk dari katalog terlebih dahulu.</p>
+        <p className="text-sm text-gray-500 mt-1 mb-6">
+          Silakan pilih produk dari katalog terlebih dahulu.
+        </p>
         <button
           onClick={() => navigate('/')}
           className="bg-purple-600 text-white font-bold px-6 py-3 rounded-xl shadow-md hover:bg-purple-700 transition-all flex items-center gap-2"
@@ -134,7 +161,7 @@ export const Checkout = () => {
 
   return (
     <div className="min-h-screen bg-[#FAFAFF] py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-5xl mx-auto space-y-6">
         <button
           onClick={() => navigate('/')}
           className="flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-purple-600 transition-colors"
@@ -143,10 +170,13 @@ export const Checkout = () => {
           <span>Kembali ke Toko</span>
         </button>
 
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Formulir Checkout Pesanan</h1>
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">
+          Formulir Checkout Pesanan
+        </h1>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <form onSubmit={handleSubmitOrder} className="md:col-span-2 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          {/* Kolom Kiri: Form */}
+          <form onSubmit={handleSubmitOrder} className="lg:col-span-3 space-y-6">
             <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
               <h3 className="font-bold text-gray-900 border-b pb-3 text-base flex items-center gap-2">
                 <CheckCircle2 size={18} className="text-purple-600" />
@@ -154,7 +184,9 @@ export const Checkout = () => {
               </h3>
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Nama Lengkap *</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Nama Lengkap *
+                  </label>
                   <input
                     type="text"
                     name="customerName"
@@ -166,7 +198,9 @@ export const Checkout = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Nomor WhatsApp Aktif *</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Nomor WhatsApp Aktif *
+                  </label>
                   <input
                     type="tel"
                     name="whatsappNumber"
@@ -186,8 +220,28 @@ export const Checkout = () => {
                   <Package size={18} className="text-purple-600" />
                   Alamat Pengiriman (Produk Fisik)
                 </h3>
+
+                {/* Kotak Transparansi Pengiriman di Form Checkout */}
+                <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-3.5 space-y-1.5 text-xs text-amber-950">
+                  <div className="font-bold flex items-center gap-1.5 text-amber-900">
+                    <Truck size={15} className="text-amber-600" />
+                    <span>
+                      Transparansi Pengiriman ({originCitiesList.length} Wilayah Asal)
+                    </span>
+                  </div>
+                  <p className="leading-relaxed text-amber-900/90">
+                    Pesanan fisik Anda akan dikirim langsung oleh mitra supplier dari{' '}
+                    <strong>{originCitiesList.join(', ')}</strong>.{' '}
+                    {originCitiesList.length > 1
+                      ? 'Karena berasal dari wilayah berbeda, paket akan dikirim secara terpisah dengan masing-masing nomor resi & ongkos kirim.'
+                      : 'Ongkos kirim dihitung dari kota asal supplier ke alamat tujuan Anda.'}
+                  </p>
+                </div>
+
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Alamat Lengkap & Kode Pos *</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Alamat Lengkap & Kode Pos *
+                  </label>
                   <textarea
                     name="shippingAddress"
                     rows="3"
@@ -208,7 +262,9 @@ export const Checkout = () => {
                   Tujuan Pengisian (Produk Digital)
                 </h3>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Nomor HP Kuota / Email Akun *</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Nomor HP Kuota / Email Akun *
+                  </label>
                   <input
                     type="text"
                     name="targetAccount"
@@ -229,7 +285,9 @@ export const Checkout = () => {
                   Instruksi Pekerjaan (Layanan Jasa)
                 </h3>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Tautan Berkas / Catatan Brief *</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Tautan Berkas / Catatan Brief *
+                  </label>
                   <textarea
                     name="serviceBrief"
                     rows="3"
@@ -262,26 +320,81 @@ export const Checkout = () => {
             </button>
           </form>
 
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm h-fit space-y-4">
-            <h3 className="font-bold text-gray-900 border-b pb-3 text-base">Ringkasan Keranjang</h3>
-            <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-              {cartItems.map((item) => (
-                <div key={item.id} className="flex justify-between items-center text-xs border-b border-gray-50 pb-2">
-                  <div>
-                    <p className="font-bold text-gray-800 line-clamp-1">{item.name}</p>
-                    <p className="text-gray-400 mt-0.5">
-                      {item.quantity}x @ {formatIDR(item.price)}
-                      {item.originCity ? ` • Asal: ${item.originCity}` : ''}
-                    </p>
+          {/* Kolom Kanan: Ringkasan Paket per Wilayah */}
+          <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm h-fit space-y-4">
+            <h3 className="font-bold text-gray-900 border-b pb-3 text-base">
+              Ringkasan Pengiriman & Pesanan
+            </h3>
+
+            <div className="space-y-4 max-h-96 overflow-y-auto pr-1">
+              {/* Kelompok Paket Fisik per Wilayah */}
+              {originCitiesList.map((origin, idx) => (
+                <div
+                  key={origin}
+                  className="bg-purple-50/40 border border-purple-100 rounded-xl p-3 space-y-2"
+                >
+                  <div className="flex items-center justify-between text-[11px] font-bold text-purple-800 border-b border-purple-100 pb-1.5">
+                    <span className="flex items-center gap-1">
+                      <Package size={12} />
+                      Paket {idx + 1}
+                    </span>
+                    <span className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-md border border-purple-100">
+                      <MapPin size={10} className="text-purple-600" />
+                      Asal: {origin}
+                    </span>
                   </div>
-                  <span className="font-extrabold text-purple-700">{formatIDR(item.price * item.quantity)}</span>
+
+                  {physicalPackages[origin].map((item) => (
+                    <div key={item.id} className="flex justify-between items-start text-xs">
+                      <div className="pr-2">
+                        <p className="font-semibold text-gray-800">{item.name}</p>
+                        <p className="text-gray-400">
+                          {item.quantity}x @ {formatIDR(item.price)}
+                        </p>
+                      </div>
+                      <span className="font-bold text-gray-900 shrink-0">
+                        {formatIDR(item.price * item.quantity)}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               ))}
+
+              {/* Kelompok Produk Digital & Layanan Jasa */}
+              {nonPhysicalItems.length > 0 && (
+                <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 space-y-2">
+                  <div className="text-[11px] font-bold text-gray-600 border-b border-gray-200/70 pb-1.5">
+                    Digital & Layanan Jasa (Tanpa Ongkir)
+                  </div>
+                  {nonPhysicalItems.map((item) => (
+                    <div key={item.id} className="flex justify-between items-start text-xs">
+                      <div className="pr-2">
+                        <p className="font-semibold text-gray-800">{item.name}</p>
+                        <p className="text-gray-400">
+                          {item.quantity}x @ {formatIDR(item.price)}
+                        </p>
+                      </div>
+                      <span className="font-bold text-gray-900 shrink-0">
+                        {formatIDR(item.price * item.quantity)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            <div className="border-t pt-3 flex justify-between items-center text-sm">
-              <span className="font-bold text-gray-700">Subtotal Produk</span>
-              <span className="font-extrabold text-purple-700 text-lg">{formatIDR(getTotalPrice())}</span>
+            <div className="border-t pt-3 space-y-2">
+              <div className="flex justify-between items-center text-sm">
+                <span className="font-bold text-gray-700">Subtotal Produk</span>
+                <span className="font-extrabold text-purple-700 text-lg">
+                  {formatIDR(getTotalPrice())}
+                </span>
+              </div>
+              {hasPhysical && (
+                <p className="text-[11px] text-gray-500 leading-relaxed">
+                  *Belum termasuk ongkos kirim. Admin akan menginformasikan rincian ongkir per paket melalui WhatsApp sebelum pembayaran.
+                </p>
+              )}
             </div>
           </div>
         </div>

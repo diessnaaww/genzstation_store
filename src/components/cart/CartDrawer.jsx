@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Trash2, Plus, Minus, ArrowRight, ShoppingBag } from 'lucide-react';
+import { X, Trash2, Plus, Minus, ArrowRight, ShoppingBag, MapPin, AlertCircle } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext.jsx';
 
 export const CartDrawer = () => {
@@ -10,8 +10,21 @@ export const CartDrawer = () => {
   if (!isCartOpen) return null;
 
   const formatIDR = (price) => {
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(price);
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      maximumFractionDigits: 0,
+    }).format(price);
   };
+
+  // Deteksi daftar kota asal unik khusus produk fisik di keranjang
+  const physicalOrigins = [
+    ...new Set(
+      cartItems
+        .filter((item) => item.pillar === 'physical' && item.originCity)
+        .map((item) => item.originCity)
+    ),
+  ];
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
@@ -22,6 +35,7 @@ export const CartDrawer = () => {
 
       <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
         <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col justify-between">
+          {/* Header Drawer */}
           <div className="p-4 sm:p-6 border-b border-gray-100 flex items-center justify-between bg-purple-50/50">
             <div className="flex items-center gap-2">
               <ShoppingBag size={20} className="text-purple-600" />
@@ -38,6 +52,7 @@ export const CartDrawer = () => {
             </button>
           </div>
 
+          {/* Daftar Item */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
             {cartItems.length > 0 ? (
               cartItems.map((item) => (
@@ -52,6 +67,14 @@ export const CartDrawer = () => {
                   />
                   <div className="flex-1 min-w-0">
                     <h4 className="text-xs font-bold text-gray-900 truncate">{item.name}</h4>
+
+                    {item.originCity && (
+                      <p className="text-[11px] text-purple-700 font-medium flex items-center gap-1 mt-0.5">
+                        <MapPin size={11} />
+                        <span>Dikirim dari: {item.originCity}</span>
+                      </p>
+                    )}
+
                     <p className="text-xs font-extrabold text-purple-700 mt-1">
                       {formatIDR(item.price)}
                     </p>
@@ -92,10 +115,30 @@ export const CartDrawer = () => {
             )}
           </div>
 
+          {/* Footer & Pemberitahuan Transparansi Pengiriman */}
           {cartItems.length > 0 && (
-            <div className="p-4 sm:p-6 border-t border-gray-100 bg-white space-y-4">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-500 font-medium">Subtotal</span>
+            <div className="p-4 sm:p-6 border-t border-gray-100 bg-white space-y-3.5">
+              {physicalOrigins.length > 1 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5 text-xs text-amber-900">
+                  <AlertCircle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                  <p className="leading-relaxed">
+                    <strong>Pengiriman Terpisah ({physicalOrigins.length} Wilayah):</strong> Produk Anda berasal dari{' '}
+                    <span className="font-bold">{physicalOrigins.join(' & ')}</span>. Paket akan dikirim dari masing-masing gudang dengan ongkir terpisah.
+                  </p>
+                </div>
+              )}
+
+              {physicalOrigins.length === 1 && (
+                <div className="bg-purple-50/70 border border-purple-100 rounded-xl px-3 py-2 flex items-center gap-2 text-xs text-purple-800">
+                  <MapPin size={14} className="text-purple-600 shrink-0" />
+                  <span>
+                    Dikirim dari gudang supplier: <strong>{physicalOrigins[0]}</strong>
+                  </span>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center text-sm pt-1">
+                <span className="text-gray-500 font-medium">Subtotal Produk</span>
                 <span className="font-extrabold text-purple-700 text-lg">
                   {formatIDR(getTotalPrice())}
                 </span>
