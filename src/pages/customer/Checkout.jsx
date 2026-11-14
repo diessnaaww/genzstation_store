@@ -28,52 +28,29 @@ import {
 } from 'lucide-react';
 
 // Konfigurasi Metode Pembayaran & Tarif Biaya Layanan Otomatis
-const PAYMENT_METHODS = {
-  QRIS: {
-    id: 'QRIS',
-    shortLabel: 'QRIS Instan',
-    title: 'QRIS Genzstation.id (All E-Wallet & M-Banking)',
-    number: 'Kode QRIS dikirim otomatis via Admin / Pop-up',
-    holder: 'a.n. Genzstation Group Official',
-    feeType: 'percent',
-    feeValue: 0.7,
-    feeBadge: 'Biaya 0,7%',
-    canCopy: false,
+const PAYMENT_METHODS = [
+  {
+    id: 'qris',
+    name: 'QRIS DANA Bisnis',
+    badge: 'Biaya 0,7%',
+    type: 'percent',
+    rate: 0.007,
   },
-  VA: {
-    id: 'VA',
-    shortLabel: 'Virtual Account',
-    title: 'Virtual Account Bank (BCA / BRI / Mandiri / BNI)',
-    number: 'Nomor VA diterbitkan saat konfirmasi',
-    holder: 'a.n. Genzstation Group Official',
-    feeType: 'fixed',
-    feeValue: 4000,
-    feeBadge: 'Biaya Rp 4.000',
-    canCopy: false,
+  {
+    id: 'va',
+    name: 'Virtual Account',
+    badge: 'Biaya Rp 4.000', // Ubah rate ke 0 jika tidak mengenakan biaya admin VA
+    type: 'flat',
+    rate: 4000,
   },
-  EWALLET: {
-    id: 'EWALLET',
-    shortLabel: 'DANA / GoPay',
-    title: 'E-Wallet (DANA / GoPay / ShopeePay)',
-    number: '085649750554',
-    holder: 'a.n. Adiesti Nuri Amanda',
-    feeType: 'percent',
-    feeValue: 1.5,
-    feeBadge: 'Biaya 1,5%',
-    canCopy: true,
-  },
-  MANUAL_BCA: {
-    id: 'MANUAL_BCA',
-    shortLabel: 'Transfer BCA',
-    title: 'Transfer Bank BCA (Verifikasi Manual)',
-    number: '1234567890',
-    holder: 'a.n. Adiesti Nuri Amanda',
-    feeType: 'free',
-    feeValue: 0,
-    feeBadge: 'Gratis (Rp 0)',
-    canCopy: true,
-  },
-};
+];
+
+const VA_BANKS = [
+  { id: 'BCA', name: 'BCA', vaNumber: 'ISI_NOMOR_VA_BCA', holder: 'Genzstation' },
+  { id: 'BRI', name: 'BRI', vaNumber: 'ISI_NOMOR_VA_BRI', holder: 'Genzstation' },
+  { id: 'SEABANK', name: 'SeaBank', vaNumber: 'ISI_NOMOR_VA_SEABANK', holder: 'Genzstation' },
+  { id: 'BANK_JATIM', name: 'Bank Jatim', vaNumber: 'ISI_NOMOR_VA_BANK_JATIM', holder: 'Genzstation' },
+];
 
 export const Checkout = () => {
   const navigate = useNavigate();
@@ -97,9 +74,135 @@ export const Checkout = () => {
   const [appliedPromo, setAppliedPromo] = useState(null);
   const [promoFeedback, setPromoFeedback] = useState({ type: '', text: '' });
 
-  // State Metode Pembayaran & Salin Rekening
-  const [paymentMethod, setPaymentMethod] = useState('QRIS');
-  const [copiedAccount, setCopiedAccount] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('qris');
+const [selectedBank, setSelectedBank] = useState(VA_BANKS[0].id);
+const [copiedVa, setCopiedVa] = useState(false);
+
+// Satu sumber perhitungan biaya layanan & total akhir
+const activePayment =
+  PAYMENT_METHODS.find((m) => m.id === paymentMethod) || PAYMENT_METHODS[0];
+const activeBank =
+  VA_BANKS.find((b) => b.id === selectedBank) || VA_BANKS[0];
+
+const baseTotal = Number(subtotal || 0) + Number(shippingCost || 0);
+const serviceFee =
+  activePayment.type === 'percent'
+    ? Math.round(baseTotal * activePayment.rate)
+    : activePayment.rate;
+const grandTotal = baseTotal + serviceFee;
+
+// Label lengkap metode pembayaran untuk disimpan ke Google Sheets & pesan WhatsApp
+const paymentLabel =
+  activePayment.id === 'va'
+    ? `Virtual Account - ${activeBank.name}`
+    : activePayment.name;
+
+const handleCopyVa = (text) => {
+  navigator.clipboard.writeText(text);
+  setCopiedVa(true);
+  setTimeout(() => setCopiedVa(false), 2000);
+};
+
+<div className="space-y-4">
+  {/* 2 Pilihan Utama: QRIS DANA Bisnis & Virtual Account */}
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    {PAYMENT_METHODS.map((method) => {
+      const isSelected = paymentMethod === method.id;
+      return (
+        <button
+          key={method.id}
+          type="button"
+          onClick={() => setPaymentMethod(method.id)}
+          className={`text-left p-4 rounded-xl border transition-all ${
+            isSelected
+              ? 'border-purple-600 bg-purple-50/40 ring-1 ring-purple-600'
+              : 'border-gray-200 bg-white hover:border-purple-300'
+          }`}
+        >
+          <div className="font-semibold text-gray-900">{method.name}</div>
+          <span
+            className={`inline-block mt-2 text-xs font-medium px-2.5 py-1 rounded-md ${
+              isSelected
+                ? 'bg-purple-600 text-white'
+                : 'bg-gray-100 text-gray-600'
+            }`}
+          >
+            {method.badge}
+          </span>
+        </button>
+      );
+    })}
+  </div>
+
+  {/* Detail QRIS DANA Bisnis */}
+  {paymentMethod === 'qris' && (
+    <div className="p-4 rounded-xl bg-purple-50/60 border border-purple-200 flex flex-col sm:flex-row items-center gap-4">
+      <img
+        src="/qris-dana-bisnis.png"
+        alt="QRIS DANA Bisnis"
+        className="w-36 h-36 object-contain rounded-lg bg-white p-2 border border-gray-200 shadow-sm"
+      />
+      <div className="space-y-1 text-center sm:text-left">
+        <p className="text-sm font-semibold text-gray-900">
+          QRIS DANA Bisnis (Semua Bank & E-Wallet)
+        </p>
+        <p className="text-xs text-gray-600 leading-relaxed">
+          Scan menggunakan <strong>DANA, GoPay, OVO, ShopeePay</strong> atau{' '}
+          <strong>Mobile Banking (BCA, BRI, Mandiri, BNI, SeaBank, Bank Jatim)</strong>.
+          Biaya layanan tetap <strong>0,7%</strong>.
+        </p>
+      </div>
+    </div>
+  )}
+
+  {/* Pilihan 4 Bank Virtual Account: BCA, BRI, SeaBank, Bank Jatim */}
+  {paymentMethod === 'va' && (
+    <div className="p-4 rounded-xl bg-gray-50 border border-gray-200 space-y-3">
+      <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+        Pilih Bank Tujuan Virtual Account
+      </p>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {VA_BANKS.map((bank) => {
+          const isBankActive = selectedBank === bank.id;
+          return (
+            <button
+              key={bank.id}
+              type="button"
+              onClick={() => setSelectedBank(bank.id)}
+              className={`py-2.5 px-3 rounded-lg border text-xs font-semibold transition-all ${
+                isBankActive
+                  ? 'border-purple-600 bg-purple-600 text-white shadow-sm'
+                  : 'border-gray-200 bg-white text-gray-700 hover:border-purple-300'
+              }`}
+            >
+              {bank.name}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Info Nomor VA Bank Terpilih + Tombol Salin */}
+      <div className="p-3 rounded-lg bg-white border border-gray-200 flex items-center justify-between gap-2">
+        <div>
+          <p className="text-xs text-gray-500">
+            Virtual Account <strong>{activeBank.name}</strong> (a.n. {activeBank.holder})
+          </p>
+          <p className="text-sm font-bold text-gray-900 tracking-wider mt-0.5">
+            {activeBank.vaNumber}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => handleCopyVa(activeBank.vaNumber)}
+          className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors"
+        >
+          {copiedVa ? 'Tersalin!' : 'Salin'}
+        </button>
+      </div>
+    </div>
+  )}
+</div>
 
   // State Formulir Dinamis
   const [formData, setFormData] = useState(() => {
