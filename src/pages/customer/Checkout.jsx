@@ -27,7 +27,7 @@ import {
   Scale,
 } from 'lucide-react';
 
-// Konfigurasi Metode Pembayaran & Tarif Biaya Layanan Otomatis
+// Satu sumber konfigurasi metode pembayaran & rekening bank tujuan
 const PAYMENT_METHODS = [
   {
     id: 'qris',
@@ -45,7 +45,7 @@ const PAYMENT_METHODS = [
   },
 ];
 
-// Ganti nomor rekening di bawah ini dengan nomor rekening asli Anda
+// Ganti ISI_NO_REK_... dengan nomor rekening asli Anda
 const BANK_ACCOUNTS = [
   { id: 'BCA', name: 'BCA', accountNumber: '1920941661', holder: 'ADIESTI NURI AMANDA' },
   { id: 'BRI', name: 'BRI', accountNumber: '646901049211531', holder: 'ADIESTI NURI AMANDA' },
@@ -75,168 +75,11 @@ export const Checkout = () => {
   const [appliedPromo, setAppliedPromo] = useState(null);
   const [promoFeedback, setPromoFeedback] = useState({ type: '', text: '' });
 
-// Satu sumber perhitungan biaya layanan & total akhir
-const activePayment =
-  PAYMENT_METHODS.find((m) => m.id === paymentMethod) || PAYMENT_METHODS[0];
-const activeBank =
-  VA_BANKS.find((b) => b.id === selectedBank) || VA_BANKS[0];
-
-const baseTotal = Number(subtotal || 0) + Number(shippingCost || 0);
-const serviceFee =
-  activePayment.type === 'percent'
-    ? Math.round(baseTotal * activePayment.rate)
-    : activePayment.rate;
-const grandTotal = baseTotal + serviceFee;
-
-// Label lengkap metode pembayaran untuk disimpan ke Google Sheets & pesan WhatsApp
-const paymentLabel =
-  activePayment.id === 'va'
-    ? `Virtual Account - ${activeBank.name}`
-    : activePayment.name;
-
-const handleCopyVa = (text) => {
-  navigator.clipboard.writeText(text);
-  setCopiedVa(true);
-  setTimeout(() => setCopiedVa(false), 2000);
-};
-
-<div className="space-y-4">
-  {/* 2 Pilihan Utama: QRIS DANA Bisnis & Transfer Bank */}
-  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-    {PAYMENT_METHODS.map((method) => {
-      const isSelected = paymentMethod === method.id;
-      return (
-        <button
-          key={method.id}
-          type="button"
-          onClick={() => setPaymentMethod(method.id)}
-          className={`text-left p-4 rounded-xl border transition-all ${
-            isSelected
-              ? 'border-purple-600 bg-purple-50/40 ring-1 ring-purple-600'
-              : 'border-gray-200 bg-white hover:border-purple-300'
-          }`}
-        >
-          <div className="font-semibold text-gray-900">{method.name}</div>
-          <span
-            className={`inline-block mt-2 text-xs font-medium px-2.5 py-1 rounded-md ${
-              isSelected
-                ? 'bg-purple-600 text-white'
-                : 'bg-gray-100 text-gray-600'
-            }`}
-          >
-            {method.badge}
-          </span>
-        </button>
-      );
-    })}
-  </div>
-
-  {/* Detail 1: QRIS DANA Bisnis */}
-  {paymentMethod === 'qris' && (
-    <div className="p-4 rounded-xl bg-purple-50/60 border border-purple-200 flex flex-col sm:flex-row items-center gap-4">
-      <img
-        src="/qris-dana-bisnis.png"
-        alt="QRIS DANA Bisnis"
-        className="w-36 h-36 object-contain rounded-lg bg-white p-2 border border-gray-200 shadow-sm"
-      />
-      <div className="space-y-1 text-center sm:text-left">
-        <p className="text-sm font-semibold text-gray-900">
-          QRIS DANA Bisnis (Semua Bank & E-Wallet)
-        </p>
-        <p className="text-xs text-gray-600 leading-relaxed">
-          Scan menggunakan <strong>DANA, GoPay, OVO, ShopeePay</strong> atau{' '}
-          <strong>Mobile Banking (BCA, BRI, Mandiri, BNI, SeaBank, Bank Jatim)</strong>.
-          Biaya layanan tetap <strong>0,7%</strong>.
-        </p>
-      </div>
-    </div>
-  )}
-
-  {/* Detail 2: Transfer Bank (BCA, BRI, SeaBank, Bank Jatim) + Kode Unik 3 Digit */}
-  {paymentMethod === 'transfer' && (
-    <div className="p-4 rounded-xl bg-gray-50 border border-gray-200 space-y-3">
-      <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
-        Pilih Rekening Bank Tujuan (Tanpa Biaya Admin)
-      </p>
-
-      {/* Tombol Pilih 4 Bank */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        {BANK_ACCOUNTS.map((bank) => {
-          const isBankActive = selectedBank === bank.id;
-          return (
-            <button
-              key={bank.id}
-              type="button"
-              onClick={() => setSelectedBank(bank.id)}
-              className={`py-2.5 px-3 rounded-lg border text-xs font-semibold transition-all ${
-                isBankActive
-                  ? 'border-purple-600 bg-purple-600 text-white shadow-sm'
-                  : 'border-gray-200 bg-white text-gray-700 hover:border-purple-300'
-              }`}
-            >
-              {bank.name}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Kotak Info Nomor Rekening + Tombol Salin */}
-      <div className="p-3 rounded-lg bg-white border border-gray-200 flex items-center justify-between gap-2">
-        <div>
-          <p className="text-xs text-gray-500">
-            Bank <strong>{activeBank.name}</strong> • a.n. <strong>{activeBank.holder}</strong>
-          </p>
-          <p className="text-base font-bold text-gray-900 tracking-wider mt-0.5">
-            {activeBank.accountNumber}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => handleCopyText(activeBank.accountNumber, 'rek')}
-          className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors shrink-0"
-        >
-          {copiedField === 'rek' ? 'Tersalin!' : 'Salin No. Rek'}
-        </button>
-      </div>
-
-      {/* Kotak Info Total Transfer Tepat dengan Kode Unik 3 Digit */}
-      <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-between gap-2">
-        <div>
-          <p className="text-xs text-amber-800">
-            Nominal Transfer Tepat (termasuk Kode Unik <strong>+{appliedUniqueCode}</strong>):
-          </p>
-          <p className="text-base font-extrabold text-amber-950 mt-0.5">
-            Rp {grandTotal.toLocaleString('id-ID')}
-          </p>
-          <p className="text-[11px] text-amber-700 mt-0.5">
-            Transfer sesuai hingga 3 digit terakhir agar pesanan cepat diverifikasi.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => handleCopyText(grandTotal, 'nominal')}
-          className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-200 text-amber-900 hover:bg-amber-300 transition-colors shrink-0"
-        >
-          {copiedField === 'nominal' ? 'Tersalin!' : 'Salin Nominal'}
-        </button>
-      </div>
-    </div>
-  )}
-</div>
-
-{serviceFee > 0 && (
-  <div className="flex justify-between text-sm text-gray-600">
-    <span>Biaya Layanan QRIS (0,7%)</span>
-    <span>Rp {serviceFee.toLocaleString('id-ID')}</span>
-  </div>
-)}
-
-{appliedUniqueCode > 0 && (
-  <div className="flex justify-between text-sm text-amber-700 font-medium">
-    <span>Kode Unik Verifikasi</span>
-    <span>+ Rp {appliedUniqueCode.toLocaleString('id-ID')}</span>
-  </div>
-)}
+  // State Metode Pembayaran & Kode Unik 3 Digit
+  const [paymentMethod, setPaymentMethod] = useState('qris');
+  const [selectedBank, setSelectedBank] = useState(BANK_ACCOUNTS[0].id);
+  const [copiedField, setCopiedField] = useState('');
+  const [uniqueCode] = useState(() => Math.floor(100 + Math.random() * 900));
 
   // State Formulir Dinamis
   const [formData, setFormData] = useState(() => {
@@ -262,7 +105,7 @@ const handleCopyVa = (text) => {
     if (user) {
       setFormData((prev) => ({
         ...prev,
-        customerName: prev.customerName || user.displayName || '',
+        customerName: prev.customerName || user.displayName || user.name || '',
         customerEmail: prev.customerEmail || user.email || '',
       }));
     }
@@ -360,7 +203,7 @@ const handleCopyVa = (text) => {
       )
     : 0;
 
-  // Perhitungan Otomatis: Subtotal -> Diskon -> Ongkir -> Biaya Layanan -> Total Akhir
+  // Perhitungan Otomatis Terpusat: Subtotal -> Diskon -> Ongkir -> Biaya Layanan / Kode Unik -> Total Akhir
   const subtotal = getTotalPrice();
 
   const discountAmount = appliedPromo
@@ -372,20 +215,25 @@ const handleCopyVa = (text) => {
   const netSubtotal = Math.max(0, subtotal - discountAmount);
   const amountBeforeFee = netSubtotal + totalShippingCost;
 
-  const selectedPayment = PAYMENT_METHODS[paymentMethod] || PAYMENT_METHODS.QRIS;
+  const activePayment =
+    PAYMENT_METHODS.find((m) => m.id === paymentMethod) || PAYMENT_METHODS[0];
+  const activeBank =
+    BANK_ACCOUNTS.find((b) => b.id === selectedBank) || BANK_ACCOUNTS[0];
 
-  const paymentServiceFee = (() => {
-    if (amountBeforeFee <= 0) return 0;
-    if (selectedPayment.feeType === 'percent') {
-      return Math.round((amountBeforeFee * selectedPayment.feeValue) / 100);
-    }
-    if (selectedPayment.feeType === 'fixed') {
-      return selectedPayment.feeValue;
-    }
-    return 0;
-  })();
+  const paymentServiceFee =
+    activePayment.id === 'qris' && amountBeforeFee > 0
+      ? Math.round(amountBeforeFee * activePayment.rate)
+      : 0;
 
-  const finalTotal = amountBeforeFee + paymentServiceFee;
+  const appliedUniqueCode =
+    activePayment.id === 'transfer' && amountBeforeFee > 0 ? uniqueCode : 0;
+
+  const finalTotal = amountBeforeFee + paymentServiceFee + appliedUniqueCode;
+
+  const paymentLabel =
+    activePayment.id === 'transfer'
+      ? `Transfer Bank ${activeBank.name} (Kode Unik +${appliedUniqueCode})`
+      : activePayment.name;
 
   const formatIDR = (price) =>
     new Intl.NumberFormat('id-ID', {
@@ -397,6 +245,12 @@ const handleCopyVa = (text) => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleCopyText = (text, fieldKey) => {
+    navigator.clipboard.writeText(String(text));
+    setCopiedField(fieldKey);
+    setTimeout(() => setCopiedField(''), 2000);
   };
 
   // Fungsi Terapkan Kode Promo
@@ -441,13 +295,7 @@ const handleCopyVa = (text) => {
     }
   };
 
-  const handleCopyAccount = (text) => {
-    navigator.clipboard.writeText(text);
-    setCopiedAccount(true);
-    setTimeout(() => setCopiedAccount(false), 2000);
-  };
-
-  // Validasi & Kirim Pesanan
+  // Validasi & Kirim Pesanan ke Google Sheets + WhatsApp
   const handleSubmitOrder = async (e) => {
     e.preventDefault();
     setErrorMsg('');
@@ -489,6 +337,7 @@ const handleCopyVa = (text) => {
 
     setIsSubmitting(true);
 
+    const generatedOrderId = `GZ-${Date.now().toString().slice(-6)}`;
     const uniquePillars = [...new Set(cartItems.map((item) => item.pillar))].join(', ');
     const uniqueOrigins = [
       ...new Set(cartItems.map((item) => item.originCity || 'Digital/Pusat')),
@@ -505,83 +354,51 @@ const handleCopyVa = (text) => {
     const extraInfo = [
       appliedPromo ? `Voucher: ${appliedPromo.code} (-${formatIDR(discountAmount)})` : '',
       hasPhysical ? `Ongkir: ${formatIDR(totalShippingCost)} (${totalPhysicalWeightGram} gr)` : '',
-      `Bayar: ${selectedPayment.shortLabel}`,
-      `Biaya Layanan: ${paymentServiceFee > 0 ? formatIDR(paymentServiceFee) : 'Gratis'}`,
+      `Bayar: ${paymentLabel}`,
+      paymentServiceFee > 0 ? `Biaya Layanan: ${formatIDR(paymentServiceFee)}` : '',
+      appliedUniqueCode > 0 ? `Kode Unik: +${appliedUniqueCode}` : '',
       formData.notes ? `Catatan: ${formData.notes}` : '',
     ]
       .filter(Boolean)
       .join(' | ');
 
-      const [paymentMethod, setPaymentMethod] = useState('qris');
-const [selectedBank, setSelectedBank] = useState(BANK_ACCOUNTS[0].id);
-const [copiedField, setCopiedField] = useState('');
+    try {
+      await saveOrderToSheets({
+        order_id: generatedOrderId,
+        customer_name: formData.customerName.trim(),
+        customer_phone: formData.whatsappNumber.trim(),
+        customer_email: formData.customerEmail.trim() || '-',
+        pillar: uniquePillars,
+        origin_city: uniqueOrigins,
+        items: cartItems,
+        items_summary: itemsSummaryText,
+        shipping_address: fullShippingLocation,
+        target_account: formData.targetAccount.trim() || '-',
+        service_brief: formData.serviceBrief.trim() || '-',
+        payment_method: paymentLabel,
+        service_fee: paymentServiceFee,
+        unique_code: appliedUniqueCode,
+        shipping_cost: totalShippingCost,
+        total_amount: finalTotal,
+        notes: extraInfo,
+        status: 'Menunggu Pembayaran',
+      });
+    } catch (err) {
+      setIsSubmitting(false);
+      setErrorMsg(err.message || 'Gagal mencatat pesanan ke database. Silakan coba lagi.');
+      return;
+    }
 
-// Kode unik 3 digit (100 - 999) dibuat 1x saat halaman dibuka agar tidak berubah-ubah saat mengetik
-const [uniqueCode] = useState(() => Math.floor(100 + Math.random() * 900));
-
-const activePayment =
-  PAYMENT_METHODS.find((m) => m.id === paymentMethod) || PAYMENT_METHODS[0];
-const activeBank =
-  BANK_ACCOUNTS.find((b) => b.id === selectedBank) || BANK_ACCOUNTS[0];
-
-const baseTotal = Number(subtotal || 0) + Number(shippingCost || 0);
-
-// QRIS dikenakan biaya layanan 0,7%; Transfer Bank Rp 0 tetapi memakai Kode Unik 3 digit
-const serviceFee =
-  activePayment.id === 'qris' ? Math.round(baseTotal * activePayment.rate) : 0;
-const appliedUniqueCode =
-  activePayment.id === 'transfer' && baseTotal > 0 ? uniqueCode : 0;
-
-const grandTotal = baseTotal + serviceFee + appliedUniqueCode;
-
-// Label metode pembayaran untuk disimpan ke Google Sheets & pesan WhatsApp
-const paymentLabel =
-  activePayment.id === 'transfer'
-    ? `Transfer Bank ${activeBank.name} (Kode Unik +${appliedUniqueCode})`
-    : activePayment.name;
-
-const handleCopyText = (text, fieldKey) => {
-  navigator.clipboard.writeText(String(text));
-  setCopiedField(fieldKey);
-  setTimeout(() => setCopiedField(''), 2000);
-};
-
-await saveOrderToSheets({
-  // ...pertahankan field order lainnya yang sudah ada
-  payment_method: paymentLabel,
-  unique_code: appliedUniqueCode,
-  service_fee: serviceFee,
-  total_amount: grandTotal,
-});
-
-    // Simpan ke Google Sheets
-    const sheetResult = await saveOrderToSheets({
-      customerName: formData.customerName.trim(),
-      whatsappNumber: cleanWA,
-      pillars: uniquePillars,
-      itemsSummary: itemsSummaryText,
-      originCities: uniqueOrigins,
-      shippingAddress: fullShippingLocation,
-      targetAccount: formData.targetAccount.trim(),
-      serviceBrief: `${formData.serviceBrief.trim()} ${extraInfo ? `(${extraInfo})` : ''}`.trim(),
-      totalPrice: finalTotal,
-    });
-
-    const generatedOrderId = sheetResult?.orderId || `GS-${Date.now().toString().slice(-6)}`;
-
-    // Susun pesan terstruktur untuk WhatsApp Admin
     let itemsListWA = '';
     if (hasPhysical) {
-      originCitiesList.forEach((origin, idx) => {
+      originCitiesList.forEach((origin) => {
         const pkgShip = shippingDetailsByOrigin[origin];
-        itemsListWA += `\n📦 *Paket Fisik ${idx + 1} (Gudang Asal: ${origin})*\n`;
+        itemsListWA += `\n📦 *Paket Fisik - Asal ${origin} (Ongkir: ${formatIDR(pkgShip.shippingCost)})*\n`;
         physicalPackages[origin].forEach((item) => {
-          const itemWeight = (Number(item.weight) > 0 ? Number(item.weight) : 250) * item.quantity;
-          itemsListWA += `  • ${item.name} (${item.quantity}x | ${itemWeight} gr) = ${formatIDR(
+          itemsListWA += `  • ${item.name} (${item.quantity}x) = ${formatIDR(
             item.price * item.quantity
           )}\n`;
         });
-        itemsListWA += `  _↳ Berat Paket: ${pkgShip.totalWeightGram} gr (${pkgShip.billableKg} kg) • Ongkir ${formData.courier}: ${formatIDR(pkgShip.shippingCost)}_\n`;
       });
     }
     if (hasDigital) {
@@ -608,7 +425,7 @@ await saveOrderToSheets({
     waMessage += `• Nama: ${formData.customerName.trim()}\n`;
     waMessage += `• No. WA: ${formData.whatsappNumber.trim()}\n`;
     if (formData.customerEmail) waMessage += `• Email: ${formData.customerEmail.trim()}\n`;
-    waMessage += `• Metode Bayar: ${selectedPayment.shortLabel}\n\n`;
+    waMessage += `• Metode Bayar: ${paymentLabel}\n\n`;
 
     if (hasPhysical) {
       waMessage += `*ALAMAT & EKSPEDISI (DROPSHIP):*\n`;
@@ -637,9 +454,12 @@ await saveOrderToSheets({
     if (hasPhysical) {
       waMessage += `• Total Ongkir (${totalPhysicalWeightGram} gr): +${formatIDR(totalShippingCost)}\n`;
     }
-    waMessage += `• Biaya Layanan (${selectedPayment.shortLabel}): ${
-      paymentServiceFee > 0 ? `+${formatIDR(paymentServiceFee)}` : 'Gratis (Rp 0)'
-    }\n`;
+    if (paymentServiceFee > 0) {
+      waMessage += `• Biaya Layanan QRIS (0,7%): +${formatIDR(paymentServiceFee)}\n`;
+    }
+    if (appliedUniqueCode > 0) {
+      waMessage += `• Kode Unik Transfer: +${formatIDR(appliedUniqueCode)}\n`;
+    }
     waMessage += `*TOTAL PEMBAYARAN: ${formatIDR(finalTotal)}*\n`;
     waMessage += `------------------------------------\n`;
 
@@ -651,7 +471,8 @@ await saveOrderToSheets({
       total: finalTotal,
       shippingCost: totalShippingCost,
       serviceFee: paymentServiceFee,
-      paymentLabel: selectedPayment.shortLabel,
+      uniqueCode: appliedUniqueCode,
+      paymentLabel,
       whatsappUrl,
       hasPhysical,
       originCities: originCitiesList,
@@ -870,7 +691,6 @@ await saveOrderToSheets({
                   </p>
                 </div>
 
-                {/* Pilihan Wilayah Indonesia Otomatis atau Manual */}
                 <div className="flex justify-end">
                   <button
                     type="button"
@@ -1118,7 +938,7 @@ await saveOrderToSheets({
               </div>
             )}
 
-            {/* 5. METODE PEMBAYARAN */}
+            {/* 5. METODE PEMBAYARAN: QRIS DANA BISNIS & TRANSFER BANK + KODE UNIK */}
             <div className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-100 shadow-2xs space-y-4">
               <div className="flex items-center justify-between border-b pb-3">
                 <h2 className="font-bold text-gray-900 text-base flex items-center gap-2">
@@ -1130,66 +950,152 @@ await saveOrderToSheets({
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2.5">
-                {Object.values(PAYMENT_METHODS).map((method) => {
+              {/* 2 Pilihan Utama */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {PAYMENT_METHODS.map((method) => {
                   const isSelected = paymentMethod === method.id;
                   return (
                     <button
-                      type="button"
                       key={method.id}
+                      type="button"
                       onClick={() => setPaymentMethod(method.id)}
-                      className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between gap-1 ${
+                      className={`text-left p-4 rounded-xl border transition-all ${
                         isSelected
-                          ? 'border-purple-600 bg-purple-50 text-purple-950 shadow-2xs'
-                          : 'border-gray-200 bg-gray-50/70 text-gray-700 hover:bg-purple-50/50'
+                          ? 'border-purple-600 bg-purple-50/50 ring-1 ring-purple-600'
+                          : 'border-gray-200 bg-white hover:border-purple-300'
                       }`}
                     >
-                      <span className="text-xs font-bold">{method.shortLabel}</span>
+                      <div className="text-sm font-bold text-gray-900">{method.name}</div>
                       <span
-                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-md w-fit ${
-                          method.feeType === 'free'
+                        className={`inline-block mt-2 text-[11px] font-semibold px-2.5 py-0.5 rounded-md ${
+                          method.id === 'transfer'
                             ? 'bg-emerald-100 text-emerald-700'
                             : isSelected
                               ? 'bg-purple-600 text-white'
-                              : 'bg-gray-200/80 text-gray-600'
+                              : 'bg-gray-100 text-gray-600'
                         }`}
                       >
-                        {method.feeBadge}
+                        {method.badge}
                       </span>
                     </button>
                   );
                 })}
               </div>
 
-              <div className="bg-gray-50 border border-gray-200/80 rounded-xl p-3.5 flex items-center justify-between gap-3">
-                <div className="space-y-0.5">
-                  <p className="text-[11px] font-bold text-gray-500">{selectedPayment.title}</p>
-                  <p className="text-sm font-mono font-extrabold text-gray-900">
-                    {selectedPayment.number}
-                  </p>
-                  <p className="text-[11px] text-gray-500">{selectedPayment.holder}</p>
+              {/* Detail 1: QRIS DANA Bisnis */}
+              {paymentMethod === 'qris' && (
+                <div className="p-4 rounded-xl bg-purple-50/60 border border-purple-200 flex flex-col sm:flex-row items-center gap-4">
+                  <img
+                    src="/qris-dana-bisnis.png"
+                    alt="QRIS DANA Bisnis"
+                    className="w-36 h-36 object-contain rounded-lg bg-white p-2 border border-gray-200 shadow-sm"
+                  />
+                  <div className="space-y-1 text-center sm:text-left">
+                    <p className="text-sm font-bold text-gray-900">
+                      QRIS DANA Bisnis (Semua Bank & E-Wallet)
+                    </p>
+                    <p className="text-xs text-gray-600 leading-relaxed">
+                      Scan menggunakan <strong>DANA, GoPay, OVO, ShopeePay</strong> atau{' '}
+                      <strong>
+                        Mobile Banking (BCA, BRI, Mandiri, BNI, SeaBank, Bank Jatim)
+                      </strong>
+                      . Biaya layanan tetap <strong>0,7%</strong>.
+                    </p>
+                  </div>
                 </div>
+              )}
 
-                {selectedPayment.canCopy && (
-                  <button
-                    type="button"
-                    onClick={() => handleCopyAccount(selectedPayment.number)}
-                    className="bg-white border border-gray-200 hover:border-purple-400 text-purple-700 font-bold text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 shrink-0 transition-all"
-                  >
-                    {copiedAccount ? (
-                      <>
-                        <Check size={14} className="text-emerald-600" />
-                        <span className="text-emerald-600">Tersalin</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={14} />
-                        <span>Salin</span>
-                      </>
-                    )}
-                  </button>
-                )}
-              </div>
+              {/* Detail 2: Transfer Bank (BCA, BRI, SeaBank, Bank Jatim) + Kode Unik 3 Digit */}
+              {paymentMethod === 'transfer' && (
+                <div className="p-4 rounded-xl bg-gray-50 border border-gray-200 space-y-3">
+                  <p className="text-[11px] font-bold text-gray-700 uppercase tracking-wide">
+                    Pilih Rekening Bank Tujuan (Tanpa Biaya Admin)
+                  </p>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {BANK_ACCOUNTS.map((bank) => {
+                      const isBankActive = selectedBank === bank.id;
+                      return (
+                        <button
+                          key={bank.id}
+                          type="button"
+                          onClick={() => setSelectedBank(bank.id)}
+                          className={`py-2.5 px-3 rounded-lg border text-xs font-bold transition-all ${
+                            isBankActive
+                              ? 'border-purple-600 bg-purple-600 text-white shadow-sm'
+                              : 'border-gray-200 bg-white text-gray-700 hover:border-purple-300'
+                          }`}
+                        >
+                          {bank.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Info Nomor Rekening + Tombol Salin */}
+                  <div className="p-3 rounded-lg bg-white border border-gray-200 flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-xs text-gray-500">
+                        Bank <strong>{activeBank.name}</strong> • a.n.{' '}
+                        <strong>{activeBank.holder}</strong>
+                      </p>
+                      <p className="text-base font-mono font-bold text-gray-900 tracking-wider mt-0.5">
+                        {activeBank.accountNumber}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyText(activeBank.accountNumber, 'rek')}
+                      className="px-3 py-1.5 text-xs font-bold rounded-lg bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors flex items-center gap-1 shrink-0"
+                    >
+                      {copiedField === 'rek' ? (
+                        <>
+                          <Check size={14} className="text-emerald-600" />
+                          <span className="text-emerald-700">Tersalin</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={14} />
+                          <span>Salin No. Rek</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Info Total Transfer Tepat dengan Kode Unik 3 Digit */}
+                  <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-xs text-amber-800">
+                        Nominal Transfer Tepat (termasuk Kode Unik{' '}
+                        <strong>+{appliedUniqueCode}</strong>):
+                      </p>
+                      <p className="text-base font-extrabold text-amber-950 mt-0.5">
+                        {formatIDR(finalTotal)}
+                      </p>
+                      <p className="text-[11px] text-amber-700 mt-0.5">
+                        Transfer sesuai hingga 3 digit terakhir agar pesanan cepat diverifikasi.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyText(finalTotal, 'nominal')}
+                      className="px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-200 text-amber-950 hover:bg-amber-300 transition-colors flex items-center gap-1 shrink-0"
+                    >
+                      {copiedField === 'nominal' ? (
+                        <>
+                          <Check size={14} />
+                          <span>Tersalin</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={14} />
+                          <span>Salin Nominal</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">
@@ -1272,7 +1178,6 @@ await saveOrderToSheets({
                         );
                       })}
 
-                      {/* Sub-footer berat & ongkir paket */}
                       <div className="pt-1.5 border-t border-purple-200/60 flex items-center justify-between text-[11px] text-purple-900">
                         <span className="flex items-center gap-1 font-medium">
                           <Scale size={11} />
@@ -1395,7 +1300,7 @@ await saveOrderToSheets({
 
                 <div className="flex justify-between items-center text-gray-600">
                   <span className="flex items-center gap-1">
-                    <span>Biaya Layanan ({selectedPayment.shortLabel})</span>
+                    <span>Biaya Layanan ({activePayment.name})</span>
                     <Info size={12} className="text-gray-400" />
                   </span>
                   <span
@@ -1406,6 +1311,13 @@ await saveOrderToSheets({
                     {paymentServiceFee > 0 ? `+${formatIDR(paymentServiceFee)}` : 'Gratis (Rp 0)'}
                   </span>
                 </div>
+
+                {appliedUniqueCode > 0 && (
+                  <div className="flex justify-between items-center text-amber-700 font-semibold">
+                    <span>Kode Unik Verifikasi</span>
+                    <span>+{formatIDR(appliedUniqueCode)}</span>
+                  </div>
+                )}
 
                 <div className="flex justify-between items-center text-sm pt-2 border-t">
                   <span className="font-extrabold text-gray-900">Total Pembayaran</span>
